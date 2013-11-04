@@ -2308,6 +2308,8 @@ static __latent_entropy void rcu_core(void)
 	do_nocb_deferred_wakeup(rdp);
 }
 
+static DEFINE_PER_CPU(struct task_struct *, rcu_cpu_kthread_task);
+
 /*
  * Schedule RCU callback invocation.  If the running implementation of RCU
  * does not support RCU priority boosting, just do a direct call, otherwise
