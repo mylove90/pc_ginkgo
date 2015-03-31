@@ -191,7 +191,8 @@ out:
 static unsigned long vmpressure_account_stall(unsigned long pressure,
 				unsigned long stall, unsigned long scanned)
 {
-	unsigned long scale;
+	unsigned long scale =
+		((vmpressure_scale_max - pressure) * stall) / scanned;
 
 	if (pressure < allocstall_threshold)
 		return pressure;
