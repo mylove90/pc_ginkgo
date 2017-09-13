@@ -38,6 +38,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/srcu.h>
+#include <linux/cpu.h>
 
 #include "rcu.h"
 #include "rcu_segcblist.h"
