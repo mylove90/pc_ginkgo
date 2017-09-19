@@ -31,10 +31,9 @@
 #include <linux/smpboot.h>
 #include <uapi/linux/sched/types.h>
 #include "../time/tick-internal.h"
+#include "../locking/rtmutex_common.h"
 
 #ifdef CONFIG_RCU_BOOST
-#include "../locking/rtmutex_common.h"
-#else /* #ifdef CONFIG_RCU_BOOST */
 
 /*
  * Some architectures do not define rt_mutexes, but if !CONFIG_RCU_BOOST,
@@ -1029,7 +1028,7 @@ static int rcu_boost(struct rcu_node *rnp)
 	raw_spin_unlock_irqrestore_rcu_node(rnp, flags);
 	/* Lock only for side effect: boosts task t's priority. */
 	rt_mutex_lock(&rnp->boost_mtx);
-	rt_mutex_unlock(&rnp->boost_mtx);  /* Then keep lockdep happy. */
+	rt_mutex_futex_unlock(&rnp->boost_mtx);  /* Then keep lockdep happy. */
 
 	return READ_ONCE(rnp->exp_tasks) != NULL ||
 	       READ_ONCE(rnp->boost_tasks) != NULL;
