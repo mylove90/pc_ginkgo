@@ -108,7 +108,7 @@ struct srcu_struct {
 #define __SRCU_STRUCT_INIT(name, pcpu_name)				\
 	{								\
 		.sda = &pcpu_name,					\
-		.lock = __RAW_SPIN_LOCK_UNLOCKED(name.lock),		\
+		.lock = __SPIN_LOCK_UNLOCKED(name.lock),		\
 		.srcu_gp_seq_needed = 0 - 1,				\
 		__SRCU_DEP_MAP_INIT(name)				\
 	}

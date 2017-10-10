@@ -88,6 +88,33 @@ do {									\
 #define spin_unlock_irqrestore_rcu_node(p, flags)			\
 	spin_unlock_irqrestore(&ACCESS_PRIVATE(p, lock), flags)	\
 
+/* Wrappers for lock acquisition and release, see raw_spin_lock_rcu_node(). */
+#define spin_lock_rcu_node(p)					\
+do {									\
+	spin_lock(&ACCESS_PRIVATE(p, lock));			\
+	smp_mb__after_unlock_lock();					\
+} while (0)
+
+#define spin_unlock_rcu_node(p) spin_unlock(&ACCESS_PRIVATE(p, lock))
+
+#define spin_lock_irq_rcu_node(p)					\
+do {									\
+	spin_lock_irq(&ACCESS_PRIVATE(p, lock));			\
+	smp_mb__after_unlock_lock();					\
+} while (0)
+
+#define spin_unlock_irq_rcu_node(p)					\
+	spin_unlock_irq(&ACCESS_PRIVATE(p, lock))
+
+#define spin_lock_irqsave_rcu_node(p, flags)			\
+do {									\
+	spin_lock_irqsave(&ACCESS_PRIVATE(p, lock), flags);	\
+	smp_mb__after_unlock_lock();					\
+} while (0)
+
+#define spin_unlock_irqrestore_rcu_node(p, flags)			\
+	spin_unlock_irqrestore(&ACCESS_PRIVATE(p, lock), flags)	\
+
 /*
  * Initialize SRCU combining tree.  Note that statically allocated
  * srcu_struct structures might already have srcu_read_lock() and
