@@ -39,6 +39,7 @@
 #include <linux/module.h>
 #include <linux/srcu.h>
 #include <linux/cpu.h>
+#include <linux/locallock.h>
 
 #include "rcu.h"
 #include "rcu_segcblist.h"
@@ -799,7 +800,9 @@ static void srcu_flip(struct srcu_struct *ssp)
  * negligible when amoritized over that time period, and the extra latency
  * of a needlessly non-expedited grace period is similarly negligible.
  */
-static bool srcu_might_be_idle(struct srcu_struct *ssp)
+static DEFINE_LOCAL_IRQ_LOCK(sp_llock);
+
+static bool srcu_might_be_idle(struct srcu_struct *sp)
 {
 	unsigned long curseq;
 	unsigned long flags;
@@ -807,13 +810,13 @@ static bool srcu_might_be_idle(struct srcu_struct *ssp)
 	unsigned long t;
 
 	/* If the local srcu_data structure has callbacks, not idle.  */
-	local_irq_save(flags);
+	local_lock_irqsave(sp_llock, flags);
 	sdp = this_cpu_ptr(ssp->sda);
 	if (rcu_segcblist_pend_cbs(&sdp->srcu_cblist)) {
-		local_irq_restore(flags);
+		local_unlock_irqrestore(sp_llock, flags);
 		return false; /* Callbacks already present, so not idle. */
 	}
-	local_irq_restore(flags);
+	local_unlock_irqrestore(sp_llock, flags);
 
 	/*
 	 * No local callbacks, so probabalistically probe global state.
@@ -893,7 +896,7 @@ void __call_srcu(struct srcu_struct *ssp, struct rcu_head *rhp,
 	}
 	rhp->func = func;
 	idx = srcu_read_lock(ssp);
-	local_irq_save(flags);
+	local_lock_irqsave(sp_llock, flags);
 	sdp = this_cpu_ptr(ssp->sda);
 	spin_lock_rcu_node(sdp);
 	rcu_segcblist_enqueue(&sdp->srcu_cblist, rhp, false);
@@ -909,7 +912,8 @@ void __call_srcu(struct srcu_struct *ssp, struct rcu_head *rhp,
 		sdp->srcu_gp_seq_needed_exp = s;
 		needexp = true;
 	}
-	spin_unlock_irqrestore_rcu_node(sdp, flags);
+	spin_unlock_rcu_node(sdp);
+	local_unlock_irqrestore(sp_llock, flags);
 	if (needgp)
 		srcu_funnel_gp_start(ssp, sdp, s, do_norm);
 	else if (needexp)
