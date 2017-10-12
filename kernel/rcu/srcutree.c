@@ -802,7 +802,7 @@ static void srcu_flip(struct srcu_struct *ssp)
  */
 static DEFINE_LOCAL_IRQ_LOCK(sp_llock);
 
-static bool srcu_might_be_idle(struct srcu_struct *sp)
+static bool srcu_might_be_idle(struct srcu_struct *ssp)
 {
 	unsigned long curseq;
 	unsigned long flags;
