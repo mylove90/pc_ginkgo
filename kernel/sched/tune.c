@@ -515,13 +515,15 @@ int schedtune_task_boost(struct task_struct *p)
  */
 int schedtune_task_boost_rcu_locked(struct task_struct *p)
 {
+	struct schedtune *st;
 	int task_boost;
 
 	if (unlikely(!schedtune_initialized))
 		return 0;
 
 	/* Get task boost value */
-	task_boost = schedtune_adj_ta(p);
+	st = task_schedtune(p);
+	task_boost = st->boost;
 
 	return task_boost;
 }
