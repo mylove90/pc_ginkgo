@@ -5346,8 +5346,11 @@ void lim_send_mgmt_frame_tx(tpAniSirGlobal mac_ctx,
 	uint16_t auth_algo;
 
 	msg_len = mb_msg->msg_len - sizeof(*mb_msg);
+
+#ifdef WLAN_DEBUG
 	pe_debug("sending fc->type: %d fc->subType: %d",
 		fc->type, fc->subType);
+#endif
 
 	sme_session_id = mb_msg->session_id;
 	if (fc->subType == SIR_MAC_MGMT_AUTH) {
