@@ -27,7 +27,7 @@
 
 char g_lcd_id[128];
 #ifdef CONFIG_KLAPSE
-#include "../sde/klapse.h"
+#include <linux/klapse.h>
 #endif
 
 /**
