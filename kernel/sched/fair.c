@@ -7439,6 +7439,10 @@ static inline bool task_fits_capacity(struct task_struct *p,
 {
 	unsigned int margin;
 
+	/*
+	 * Derive upmigration/downmigrate margin wrt the src/dest
+	 * CPU.
+	 */
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
 #ifdef CONFIG_SCHED_TUNE
                 margin = schedtune_task_boost(p) > 0 &&
@@ -7447,7 +7451,7 @@ static inline bool task_fits_capacity(struct task_struct *p,
                 margin = uclamp_boosted(p) > 0 ?
 #endif
 			sched_capacity_margin_down_boosted[task_cpu(p)] :
-			sched_capacity_margin_down[task_cpu(p)];
+			sched_capacity_margin_down[cpu];
 	else
 #ifdef CONFIG_SCHED_TUNE
                 margin = schedtune_task_boost(p) > 0 &&
