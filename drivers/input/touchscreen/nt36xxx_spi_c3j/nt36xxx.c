@@ -2120,13 +2120,12 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	pm_runtime_enable(&ts->client->dev);
 
 	set_touchpanel_recovery_callback(nvt_ts_recovery_callback);
-	//spi bus pm_runtime_get
-	spi_geni_master_dev = lct_get_spi_geni_master_dev(ts->client->master);
-	if (spi_geni_master_dev) {
-		if (pm_runtime_get(spi_geni_master_dev))
-			NVT_ERR("pm_runtime_get fail!\n");
-	}
-	
+
+#if NVT_USB_PLUGIN
+	g_touchscreen_usb_pulgin.event_callback = nvt_ts_usb_event_callback;
+#endif
+
+	driver_ready = true;
 
 	return 0;
 
