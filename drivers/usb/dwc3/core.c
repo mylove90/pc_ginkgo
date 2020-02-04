@@ -958,9 +958,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_FSLS;
 		}
 
-		if (dwc->parkmode_disable_ss_quirk)
-			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_SS;
-
 		dwc3_writel(dwc->regs, DWC3_GUCTL1, reg);
 	}
 
@@ -1414,7 +1411,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
+	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", 0);
 	if (!dwc->dwc_wq) {
 		dev_err(dev,
 			"%s: Unable to create workqueue dwc_wq\n", __func__);
@@ -1485,8 +1482,10 @@ err3:
 	dwc3_free_scratch_buffers(dwc);
 err2:
 	dwc3_free_event_buffers(dwc);
+
 err1:
 	destroy_workqueue(dwc->dwc_wq);
+
 err0:
 	/*
 	 * restore res->start back to its original value so that, in case the

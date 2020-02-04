@@ -2,7 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -36,11 +36,6 @@
 #include "core.h"
 #include "gadget.h"
 #include "io.h"
-
-#undef dev_dbg
-#define dev_dbg dev_err
-#undef pr_debug
-#define pr_debug pr_info
 
 #define DWC3_SOFT_RESET_TIMEOUT	10 /* 10 msec */
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc, bool remote_wakeup);
@@ -401,7 +396,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 {
 	const struct usb_endpoint_descriptor *desc = dep->endpoint.desc;
 	struct dwc3		*dwc = dep->dwc;
-	u32			timeout = 5000;
+	u32			timeout = 3000;
 	u32			saved_config = 0;
 	u32			reg;
 
@@ -1191,18 +1186,11 @@ static void __dwc3_prepare_one_trb(struct dwc3_ep *dep, struct dwc3_trb *trb,
 		trb->ctrl |= DWC3_TRB_CTRL_SID_SOFN(stream_id);
 
 	/*
-	 * As per data book 4.2.3.2TRB Control Bit Rules section
-	 *
-	 * The controller autonomously checks the HWO field of a TRB to determine if the
-	 * entire TRB is valid. Therefore, software must ensure that the rest of the TRB
-	 * is valid before setting the HWO field to '1'. In most systems, this means that
-	 * software must update the fourth DWORD of a TRB last.
-	 *
-	 * However there is a possibility of CPU re-ordering here which can cause
-	 * controller to observe the HWO bit set prematurely.
-	 * Add a write memory barrier to prevent CPU re-ordering.
+	 * Ensure that updates of buffer address and size happens
+	 * before we set the DWC3_TRB_CTRL_HWO so that core
+	 * does not process any stale TRB.
 	 */
-	wmb();
+	mb();
 	trb->ctrl |= DWC3_TRB_CTRL_HWO;
 
 	dwc3_ep_inc_enq(dep);
@@ -1997,8 +1985,11 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 	link_state = dwc3_get_link_state(dwc);
 
 	switch (link_state) {
+	case DWC3_LINK_STATE_RESET:
 	case DWC3_LINK_STATE_RX_DET:	/* in HS, means Early Suspend */
 	case DWC3_LINK_STATE_U3:	/* in HS, means SUSPEND */
+	case DWC3_LINK_STATE_U2:	/* in HS, means Sleep (L1) */
+	case DWC3_LINK_STATE_RESUME:
 		break;
 	case DWC3_LINK_STATE_U1:
 		if (dwc->gadget.speed < USB_SPEED_SUPER) {
@@ -2186,7 +2177,6 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 	u32			reg, reg1;
 	u32			timeout = 1500;
 	ktime_t			start, diff;
-
 	dbg_event(0xFF, "run_stop", is_on);
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	if (is_on) {
@@ -2198,24 +2188,24 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 		if (dwc->revision >= DWC3_REVISION_194A)
 			reg &= ~DWC3_DCTL_KEEP_CONNECT;
 
-		start = ktime_get();
-		/* issue device SoftReset */
-		dwc3_writel(dwc->regs, DWC3_DCTL, reg | DWC3_DCTL_CSFTRST);
-		do {
-			reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-			if (!(reg & DWC3_DCTL_CSFTRST))
-				break;
-
-			diff = ktime_sub(ktime_get(), start);
-			/* poll for max. 10ms */
-			if (ktime_to_ms(diff) > DWC3_SOFT_RESET_TIMEOUT) {
-				printk_ratelimited(KERN_ERR
-					"%s:core Reset Timed Out\n", __func__);
-			break;
-		}
-			cpu_relax();
-		} while (true);
-
+		start = ktime_get(); 
+		/* issue device SoftReset */ 
+		dwc3_writel(dwc->regs, DWC3_DCTL, reg | DWC3_DCTL_CSFTRST); 
+		do { 
+			reg = dwc3_readl(dwc->regs, DWC3_DCTL); 
+			if (!(reg & DWC3_DCTL_CSFTRST)) 
+			break; 
+ 
+			diff = ktime_sub(ktime_get(), start); 
+			/* poll for max. 10ms */ 
+			if (ktime_to_ms(diff) > DWC3_SOFT_RESET_TIMEOUT) { 
+			printk_ratelimited(KERN_ERR 
+				"%s:core Reset Timed Out\n", __func__); 
+			break; 
+		} 
+			cpu_relax(); 
+		} while (true); 
+ 
 		dwc3_event_buffers_setup(dwc);
 		__dwc3_gadget_start(dwc);
 
@@ -2351,8 +2341,11 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 		ret = wait_for_completion_timeout(&dwc->ep0_in_setup,
 				msecs_to_jiffies(DWC3_PULL_UP_TIMEOUT));
-		if (ret == 0)
-			dev_warn(dwc->dev, "timed out waiting for SETUP phase\n");
+		if (ret == 0) {
+			dev_err(dwc->dev, "timed out waiting for SETUP phase\n");
+			dbg_event(0xFF, "Pullup timeout put",
+				atomic_read(&dwc->dev->power.usage_count));
+		}
 	}
 
 	disable_irq(dwc->irq);
@@ -2414,6 +2407,10 @@ static void dwc3_gadget_enable_irq(struct dwc3 *dwc)
 
 	if (dwc->revision < DWC3_REVISION_230A)
 		reg |= DWC3_DEVTEN_ULSTCNGEN;
+
+	/* On 2.30a and above this bit enables U3/L2-L1 Suspend Events */
+	if (dwc->revision >= DWC3_REVISION_230A)
+		reg |= DWC3_DEVTEN_EOPFEN;
 
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
 }
@@ -3374,6 +3371,15 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	usb_phy_start_link_training(dwc->usb3_phy);
 
 	/*
+	 * Ideally, dwc3_reset_gadget() would trigger the function
+	 * drivers to stop any active transfers through ep disable.
+	 * However, for functions which defer ep disable, such as mass
+	 * storage, we will need to rely on the call to stop active
+	 * transfers here, and avoid allowing of request queuing.
+	 */
+	dwc->connected = false;
+
+	/*
 	 * WORKAROUND: DWC3 revisions <1.88a have an issue which
 	 * would cause a missing Disconnect Event if there's a
 	 * pending Setup Packet in the FIFO.
@@ -3953,12 +3959,10 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 	start_time = ktime_get();
 
-	local_bh_disable();
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->bh_handled_evt_cnt[dwc->irq_dbg_index] = 0;
 	ret = dwc3_process_event_buf(evt);
 	spin_unlock_irqrestore(&dwc->lock, flags);
-	local_bh_enable();
 
 	dwc->bh_completion_time[dwc->irq_dbg_index] =
 		ktime_to_us(ktime_sub(ktime_get(), start_time));
