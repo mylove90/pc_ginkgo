@@ -394,8 +394,10 @@ irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
 
 	if (old_notify) {
-#ifndef CONFIG_PREEMPT_RT_BASE
-		if (kthread_cancel_work_sync(&notify->work)) {
+		if (notify)
+			WARN(1, "overwriting previous IRQ affinity notifier\n");
+#ifdef CONFIG_PREEMPT_RT_BASE
+		if (kthread_cancel_work_sync(&old_notify->work)) {
 #else
 		if (cancel_work_sync(&old_notify->work)) {
 #endif
