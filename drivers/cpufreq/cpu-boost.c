@@ -46,6 +46,8 @@ static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 static struct kthread_work input_boost_work;
 static struct kthread_work powerkey_input_boost_work;
 
+static struct kthread_work powerkey_input_boost_work;
+
 static bool input_boost_enabled;
 
 static unsigned int input_boost_ms = 40;
@@ -67,6 +69,9 @@ static u64 last_input_time;
 
 static struct kthread_worker cpu_boost_worker;
 static struct task_struct *cpu_boost_worker_thread;
+
+static struct kthread_worker powerkey_cpu_boost_worker;
+static struct task_struct *powerkey_cpu_boost_worker_thread;
 
 #define MIN_INPUT_INTERVAL (100 * USEC_PER_MSEC)
 #define MAX_NAME_LENGTH 64
@@ -434,11 +439,25 @@ static int cpu_boost_init(void)
 	if (ret)
 		pr_err("cpu-boost: Failed to set SCHED_FIFO!\n");
 
+	kthread_init_worker(&powerkey_cpu_boost_worker);
+	powerkey_cpu_boost_worker_thread = kthread_create(kthread_worker_fn,
+		&powerkey_cpu_boost_worker, "powerkey_cpu_boost_worker_thread");
+	if (IS_ERR(powerkey_cpu_boost_worker_thread)) {
+		pr_err("powerkey_cpu-boost: Failed to init kworker!\n");
+		return -EFAULT;
+	}
+
+	ret = sched_setscheduler(powerkey_cpu_boost_worker_thread, SCHED_FIFO, &param);
+	if (ret)
+		pr_err("powerkey_cpu-boost: Failed to set SCHED_FIFO!\n");
+
 	/* Now bind it to the cpumask */
 	kthread_bind_mask(cpu_boost_worker_thread, &sys_bg_mask);
+	kthread_bind_mask(powerkey_cpu_boost_worker_thread, &sys_bg_mask);
 
 	/* Wake it up! */
 	wake_up_process(cpu_boost_worker_thread);
+	wake_up_process(powerkey_cpu_boost_worker_thread);
 
 	kthread_init_work(&input_boost_work, do_input_boost);
 	kthread_init_work(&powerkey_input_boost_work, do_powerkey_input_boost);
