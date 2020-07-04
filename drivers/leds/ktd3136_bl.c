@@ -280,7 +280,7 @@ void ktd3137_brightness_set_workfunc(struct ktd3137_chip *chip, int brightness)
 }
 int sgm_brightness_set(uint16_t brightness)
 {
-	pr_info("[brightness]%s brightness = %d\n", __func__, brightness);
+	pr_debug("[brightness]%s brightness = %d\n", __func__, brightness);
 	if (g_backlight_ic == 1)
 		ktd3137_brightness_set_workfunc(bkl_chip, brightness);
 	else
