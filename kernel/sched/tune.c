@@ -517,7 +517,7 @@ int schedtune_task_boost_rcu_locked(struct task_struct *p)
 {
 	int task_boost;
 
-	if (unlikely(!schedtune_initialized))
+	if (unlikely(!schedtune_initialized) || is_battery_saver_on())
 		return 0;
 
 	/* Get task boost value */
