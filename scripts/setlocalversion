@@ -62,7 +62,8 @@ scm_version()
 			if false; then
 				echo "$atag" | awk -F- '{printf("-%05d-%s", $(NF-1),$(NF))}'
 
-			# If we don't have a tag at all we print -g{commitish}.
+			# If we don't have a tag at all we print -g{commitish},
+			# again using exactly 12 hex chars.
 			else
 				printf '%s%s' "/" $head
 			fi
