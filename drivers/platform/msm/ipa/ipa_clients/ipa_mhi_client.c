@@ -519,6 +519,10 @@ fail:
 	debugfs_remove_recursive(dent);
 }
 
+static void ipa_mhi_debugfs_destroy(void)
+{
+	debugfs_remove_recursive(dent);
+}
 #else
 static void ipa_mhi_debugfs_init(void) {}
 static void ipa_mhi_debugfs_destroy(void) {}
@@ -2581,13 +2585,6 @@ int ipa_mhi_destroy_all_channels(void)
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 }
-
-#ifdef CONFIG_DEBUG_FS
-static void ipa_mhi_debugfs_destroy(void)
-{
-	debugfs_remove_recursive(dent);
-}
-#endif
 
 static void ipa_mhi_delete_rm_resources(void)
 {
