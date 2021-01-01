@@ -30,6 +30,7 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_mode.h>
 #include <drm/drm_print.h>
+#include <linux/devfreq_boost.h>
 #include <linux/sync_file.h>
 
 #include "drm_crtc_internal.h"
@@ -2220,6 +2221,9 @@ int drm_mode_atomic_ioctl(struct drm_device *dev,
 	unsigned plane_mask;
 	int ret = 0;
 	unsigned int i, j, num_fences;
+
+	if (df_boost_within_input(3250))
+		devfreq_boost_kick(DEVFREQ_CPU_DDR_BW);
 
 	/* disallow for drivers not supporting atomic: */
 	if (!drm_core_check_feature(dev, DRIVER_ATOMIC))
