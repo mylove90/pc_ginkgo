@@ -63,9 +63,8 @@
 			IPA_GSB_DRV_NAME " %s:%d " fmt, ## args); \
 	} while (0)
 
-#define IPA_GSB_MAX_MSG_LEN 512
-
 #ifdef CONFIG_DEBUG_FS
+#define IPA_GSB_MAX_MSG_LEN 512
 static char dbg_buff[IPA_GSB_MAX_MSG_LEN];
 static struct dentry *dent;
 static struct dentry *dfile_stats;
