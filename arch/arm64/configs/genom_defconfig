@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.14.269 Kernel Configuration
+# Linux/arm64 4.14.274 Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -1483,6 +1483,7 @@ CONFIG_UID_SYS_STATS=y
 # CONFIG_MEMORY_STATE_TIME is not set
 CONFIG_QPNP_MISC=y
 # CONFIG_TEST_IRQ_REQUESTER is not set
+CONFIG_BATTERY_SAVER=y
 # CONFIG_C2PORT is not set
 
 #
