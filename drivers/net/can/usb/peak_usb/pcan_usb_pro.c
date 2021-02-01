@@ -3,6 +3,7 @@
  * Derived from the PCAN project file driver/src/pcan_usbpro.c
  *
  * Copyright (C) 2003-2011 PEAK System-Technik GmbH
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2011-2012 Stephane Grosjean <s.grosjean@peak-system.com>
  *
  * This program is free software; you can redistribute it and/or modify it

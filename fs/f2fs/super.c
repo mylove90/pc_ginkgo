@@ -3,6 +3,7 @@
  * fs/f2fs/super.c
  *
  * Copyright (c) 2012 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *             http://www.samsung.com/
  */
 #include <linux/module.h>
@@ -2340,6 +2341,7 @@ static void f2fs_truncate_quota_inode_pages(struct super_block *sb)
 		if (!dqopt->files[type])
 			continue;
 		f2fs_inode_synced(dqopt->files[type]);
+		truncate_inode_pages_final(dqopt->files[type]->i_mapping);
 	}
 }
 
