@@ -3,7 +3,7 @@
  * FocalTech TouchScreen driver.
  *
  * Copyright (c) 2012-2019, FocalTech Systems, Ltd., all rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -231,7 +231,7 @@
  * define your own fw_file, the sample one to be replaced is invalid
  * NOTE: if FTS_GET_MODULE_NUM > 1, it's the fw corresponding with FTS_VENDOR_ID
  */
-#define FTS_UPGRADE_FW_FILE                      "include/firmware/fw_huaxing_v09.i"
+#define FTS_UPGRADE_FW_FILE                      "include/firmware/fw_huaxing_v0b.i"
 
 /*
  * if FTS_GET_MODULE_NUM >= 2, fw corrsponding with FTS_VENDOR_ID2

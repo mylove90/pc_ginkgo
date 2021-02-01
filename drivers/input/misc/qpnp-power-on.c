@@ -2545,6 +2545,12 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+	
+	rc = device_create_file(&pdev->dev, &dev_attr_kpdpwr_reset);
+	if (rc) {
+		dev_err(&pdev->dev, "sys file creation failed rc: %d\n", rc);
+		return rc;
+	}
 
 	rc = device_create_file(&pdev->dev, &dev_attr_kpdpwr_reset);
 	if (rc) {

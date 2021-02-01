@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 - 2018 Novatek, Inc.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * $Revision: 43560 $
  * $Date: 2019-04-19 11:34:19 +0800 (週五, 19 四月 2019) $
@@ -16,8 +16,8 @@
  * more details.
  *
  */
-#ifndef _LINUX_NVT_TOUCH_H
-#define _LINUX_NVT_TOUCH_H
+#ifndef 	_LINUX_NVT_TOUCH_H
+#define		_LINUX_NVT_TOUCH_H
 
 #include <linux/delay.h>
 #include <linux/input.h>
@@ -54,26 +54,26 @@
 #define NVTTOUCH_RST_PIN 87
 #define NVTTOUCH_INT_PIN 88
 
+
 //---INT trigger mode---
 //#define IRQ_TYPE_EDGE_RISING 1
 //#define IRQ_TYPE_EDGE_FALLING 2
 #define INT_TRIGGER_TYPE IRQ_TYPE_EDGE_RISING
 
+
 //---SPI driver info.---
 #define NVT_SPI_NAME "NVT-ts"
 
 #if NVT_DEBUG
-#define NVT_LOG(fmt, args...)                                                  \
-	pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
+#define NVT_LOG(fmt, args...)    pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 #else
-#define NVT_LOG(fmt, args...)                                                  \
-	pr_info("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
+#define NVT_LOG(fmt, args...)    pr_info("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 #endif
-#define NVT_ERR(fmt, args...)                                                  \
-	pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
+#define NVT_ERR(fmt, args...)    pr_err("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 
 //---Input device info.---
 #define NVT_TS_NAME "NVTCapacitiveTouchScreen"
+
 
 //---Touch info.---
 #define TOUCH_DEFAULT_MAX_WIDTH 1080
@@ -98,44 +98,33 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 extern const uint16_t gesture_key_array[];
 #endif
 #define BOOT_UPDATE_FIRMWARE 1
-#define FIRMWARE_NAME_LEN 256
-#define BOOT_UPDATE_FIRMWARE_NAME "novatek_ts_fw.bin"
-#define BOOT_UPDATE_TIANMA_FIRMWARE_NAME "novatek_ts_tianma_fw.bin"
-#define BOOT_UPDATE_EBBG_FIRMWARE_NAME "novatek_ts_ebbg_fw.bin"
-#define MP_UPDATE_FIRMWARE_NAME "novatek_ts_mp.bin"
-#define MP_UPDATE_TIANMA_FIRMWARE_NAME "novatek_ts_tianma_mp.bin"
-#define MP_UPDATE_EBBG_FIRMWARE_NAME "novatek_ts_ebbg_mp.bin"
+#define FIRMWARE_NAME_LEN    256
+#define BOOT_UPDATE_FIRMWARE_NAME         "novatek_ts_fw.bin"
+#define BOOT_UPDATE_TIANMA_FIRMWARE_NAME  "novatek_ts_tianma_fw.bin"
+#define BOOT_UPDATE_EBBG_FIRMWARE_NAME    "novatek_ts_ebbg_fw.bin"
+#define MP_UPDATE_FIRMWARE_NAME           "novatek_ts_mp.bin"
+#define MP_UPDATE_TIANMA_FIRMWARE_NAME    "novatek_ts_tianma_mp.bin"
+#define MP_UPDATE_EBBG_FIRMWARE_NAME      "novatek_ts_ebbg_mp.bin"
 
 //---ESD Protect.---
 #define NVT_TOUCH_ESD_PROTECT 0
-#define NVT_TOUCH_ESD_CHECK_PERIOD 1500 /* ms */
+#define NVT_TOUCH_ESD_CHECK_PERIOD 1500	/* ms */
 #define NVT_TOUCH_WDT_RECOVERY 1
 
 //enable 'check touch vendor' feature
 #define CHECK_TOUCH_VENDOR
 
 //enable tp work feature
-#define LCT_TP_WORK_EN 1
+#define LCT_TP_WORK_EN      1
 
 //enable tp grip area feature
 #define LCT_TP_GRIP_AREA_EN 1
 
-//enable tp usb plugin feature
-#define NVT_USB_PLUGIN 1
-
-#if NVT_USB_PLUGIN
-typedef struct touchscreen_usb_plugin_data {
-	bool valid;
-	bool usb_plugged_in;
-	void (*event_callback)(void);
-} touchscreen_usb_plugin_data_t;
-#endif
-
 //---Touch Vendor ID---
-#define TP_VENDOR_UNKNOW 0x00
-#define TP_VENDOR_TIANMA 0x01
-#define TP_VENDOR_HUAXING 0x02
-#define TP_VENDOR_EBBG 0x03
+#define TP_VENDOR_UNKNOW    0x00
+#define TP_VENDOR_TIANMA    0x01
+#define TP_VENDOR_HUAXING   0x02
+#define TP_VENDOR_EBBG      0x03
 
 //new qcom platform use
 #define _MSM_DRM_NOTIFY_H_
@@ -198,40 +187,43 @@ struct nvt_ts_data {
 	struct mt_chip_conf spi_ctrl;
 #endif
 #ifdef CONFIG_SPI_MT65XX
-	struct mtk_chip_config spi_ctrl;
+    struct mtk_chip_config spi_ctrl;
 #endif
 };
 
 #if NVT_TOUCH_PROC
-struct nvt_flash_data {
+struct nvt_flash_data{
 	rwlock_t lock;
 };
 #endif
 
 typedef enum {
-	RESET_STATE_INIT = 0xA0, // IC reset
-	RESET_STATE_REK, // ReK baseline
-	RESET_STATE_REK_FINISH, // baseline is ready
-	RESET_STATE_NORMAL_RUN, // normal run
-	RESET_STATE_MAX = 0xAF
+	RESET_STATE_INIT = 0xA0,// IC reset
+	RESET_STATE_REK,		// ReK baseline
+	RESET_STATE_REK_FINISH,	// baseline is ready
+	RESET_STATE_NORMAL_RUN,	// normal run
+	RESET_STATE_MAX  = 0xAF
 } RST_COMPLETE_STATE;
 
 typedef enum {
-	EVENT_MAP_HOST_CMD = 0x50,
-	EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE = 0x51,
-	EVENT_MAP_RESET_COMPLETE = 0x60,
-	EVENT_MAP_FWINFO = 0x78,
-	EVENT_MAP_PROJECTID = 0x9A,
+    EVENT_MAP_HOST_CMD                      = 0x50,
+    EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE   = 0x51,
+    EVENT_MAP_RESET_COMPLETE                = 0x60,
+    EVENT_MAP_FWINFO                        = 0x78,
+    EVENT_MAP_PROJECTID                     = 0x9A,
 } SPI_EVENT_MAP;
 
 //---SPI READ/WRITE---
-#define SPI_WRITE_MASK(a) (a | 0x80)
-#define SPI_READ_MASK(a) (a & 0x7F)
+#define SPI_WRITE_MASK(a)	(a | 0x80)
+#define SPI_READ_MASK(a)	(a & 0x7F)
 
 #define DUMMY_BYTES (1)
-#define NVT_TRANSFER_LEN (63 * 1024)
+#define NVT_TRANSFER_LEN	(63*1024)
 
-typedef enum { NVTWRITE = 0, NVTREAD = 1 } NVT_SPI_RW;
+typedef enum {
+	NVTWRITE = 0,
+	NVTREAD  = 1
+} NVT_SPI_RW;
 
 //---extern structures---
 extern struct nvt_ts_data *ts;

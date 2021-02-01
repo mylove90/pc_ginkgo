@@ -43,11 +43,11 @@
  */
 typedef int (*tp_gesture_cb_t)(bool enable_tp);
 
-typedef struct lct_tp {
+typedef struct lct_tp{
 	bool enable_tp_gesture_flag;
 	struct proc_dir_entry *proc_entry_tp;
 	tp_gesture_cb_t pfun;
-} lct_tp_t;
+}lct_tp_t;
 
 /*
  * GLOBAL VARIABLE DEFINITIONS
@@ -71,14 +71,14 @@ static const struct file_operations lct_proc_tp_gesture_fops = {
 
 int init_lct_tp_gesture(tp_gesture_cb_t callback)
 {
-	if (callback == NULL) {
+	if (NULL == callback) {
 		TP_LOGE("callback is NULL!\n");
 		return -EINVAL;
 	}
 
 	TP_LOGW("Initialization tp_gesture node!\n");
 	lct_tp_p = kzalloc(sizeof(lct_tp_t), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(lct_tp_p)) {
+	if (IS_ERR_OR_NULL(lct_tp_p)){
 		TP_LOGE("kzalloc() request memory failed!\n");
 		return -ENOMEM;
 	}
@@ -134,7 +134,7 @@ static int lct_creat_proc_tp_entry(void)
 
 static ssize_t lct_proc_tp_gesture_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	ssize_t cnt = 0;
+	ssize_t cnt=0;
 	char *page = NULL;
 
 	if (*ppos)
@@ -214,5 +214,6 @@ static void __exit tp_gesture_exit(void)
 module_init(tp_gesture_init);
 module_exit(tp_gesture_exit);
 
-MODULE_DESCRIPTION("Touchpad Work Controller Driver");
+MODULE_DESCRIPTION("Touchpad Work Contoller Driver");
 MODULE_LICENSE("GPL");
+

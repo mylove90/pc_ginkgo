@@ -5,6 +5,23 @@
 
 # Each configuration option enables a list of files.
 
+# HMI_M516_A01
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_info.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_selftest.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_gesture.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_grip_area.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_work.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += nt36xxx_spi_c3j/
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += ft8719_spi_c3j/
+
+# HMI_M511_A01
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += lct_tp_info.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += lct_tp_selftest.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += lct_tp_gesture.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += lct_tp_grip_area.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += lct_tp_work.o
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3X) += nt36xxx_spi_c3x/
+
 wm97xx-ts-y := wm97xx-core.o
 
 obj-$(CONFIG_TOUCHSCREEN_PROPERTIES)	+= of_touchscreen.o
@@ -108,12 +125,3 @@ obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
 obj-$(CONFIG_TOUCHSCREEN_ST)		+= st/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET)	+= hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM)	+= synaptics_tcm/
-obj-$(CONFIG_TOUCHSCREEN_RAYDIUM_CHIPSET)  += raydium_wt030/
-# HMI_M516_A01
-obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_info.o
-obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_selftest.o
-obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_gesture.o
-obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_grip_area.o
-obj-$(CONFIG_TOUCHSCREEN_XIAOMI_C3J) += lct_tp_work.o
-obj-$(CONFIG_TOUCHSCREEN_NT36xxx_C3J) += nt36xxx_spi_c3j/
-obj-$(CONFIG_TOUCHSCREEN_FTS_C3J)     += ft8719_spi_c3j/

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,10 @@
 #include "dsi_parser.h"
 
 char g_lcd_id[128];
+extern bool panel_init_judge;
+
+bool backlight_val;
+
 /**
  * topology is currently defined by a set of following 3 values:
  * 1. num of layer mixers
@@ -374,7 +378,7 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 		}
 	}
 
-	usleep_range(12*1000, 12*1010);
+	usleep_range(12*1000,12*1000);
 	if (r_config->count) {
 		rc = gpio_direction_output(r_config->reset_gpio,
 			r_config->sequence[0].level);
@@ -386,27 +390,30 @@ static int dsi_panel_reset(struct dsi_panel *panel)
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_C3J
 	if (strstr(g_lcd_id, "huaxing") != NULL) {
+
 		if (!IS_ERR_OR_NULL(lct_tp_reset_enable_cb_p)) {
 			lct_tp_reset_enable_cb_p(true);
-			usleep_range(5 * 1000, 5 * 1020);
+			usleep_range(5 * 1000, 5 * 1000);
 		}
 		gpio_set_value(r_config->reset_gpio, 1);
-		usleep_range(5 * 1000, 5 * 1020);
+		usleep_range(5 * 1000, 5 * 1000);
 
 		if (!IS_ERR_OR_NULL(lct_tp_reset_enable_cb_p)) {
 			lct_tp_reset_enable_cb_p(false);
-			usleep_range(5 * 1000, 5 * 1020);
+			usleep_range(5 * 1000, 5 * 1000);
 		}
 		gpio_set_value(r_config->reset_gpio, 0);
-		usleep_range(5 * 1000, 5 * 1020);
+		usleep_range(5 * 1000, 5 * 1000);
 
 		if (!IS_ERR_OR_NULL(lct_tp_reset_enable_cb_p)) {
 			lct_tp_reset_enable_cb_p(true);
-			usleep_range(5 * 1000, 5 * 1020);
+			usleep_range(5 * 1000, 5 * 1000);
 		}
 		gpio_set_value(r_config->reset_gpio, 1);
-		usleep_range(20 * 1000, 20 * 1020);
+		usleep_range(20 * 1000, 20 * 1000);
+
 	} else {
+
 		for (i = 0; i < r_config->count; i++) {
 			gpio_set_value(r_config->reset_gpio,
 					r_config->sequence[i].level);
@@ -521,7 +528,7 @@ exit:
 	return rc;
 }
 
-#ifdef CONFIG_TOUCHSCREEN_XIAOMI_C3J
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
 static bool lcd_reset_keep_high = false;
 void set_lcd_reset_gpio_keep_high(bool en)
 {
@@ -538,7 +545,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
 	if (gpio_is_valid(panel->reset_config.reset_gpio)) {
-#ifdef CONFIG_TOUCHSCREEN_XIAOMI_C3J
+#if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
 		if (lcd_reset_keep_high)
 			pr_warn("%s: lcd-reset-gpio keep high\n", __func__);
 		else {
@@ -751,7 +758,13 @@ extern int sgm_brightness_set(uint16_t brightness);
 static int dsi_panel_update_backlight_externel(struct dsi_panel *panel,
 	u32 bl_lvl)
 {
-	pr_debug("backlight level :%d\n", bl_lvl);
+
+	pr_err("backlight level :%d\n", bl_lvl);
+	if(bl_lvl > 0)
+		backlight_val = true;
+	else
+	       backlight_val = false;
+	
 	if (!panel || (bl_lvl > 0xffff)) {
 		pr_err("invalid params\n");
 		return -EINVAL;
@@ -769,7 +782,7 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	if (panel->host_config.ext_bridge_num)
 		return 0;
 
-	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
+	pr_info("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		rc = backlight_device_set_brightness(bl->raw_bd, bl_lvl);
@@ -3359,31 +3372,29 @@ end:
 static ssize_t msm_fb_lcd_name(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	ssize_t ret = 0;
-
-	sprintf(buf, "%s\n", g_lcd_id);
-	ret = strlen(buf) + 1;
-	return ret;
+   ssize_t ret = 0;
+   sprintf(buf, "%s\n", g_lcd_id);
+   ret = strlen(buf) + 1;
+   return ret;
 }
 
-static DEVICE_ATTR(lcd_name, 0664, msm_fb_lcd_name, NULL);
+static DEVICE_ATTR(lcd_name,0664,msm_fb_lcd_name,NULL);
 static struct kobject *msm_lcd_name;
-static int msm_lcd_name_create_sysfs(void)
-{
-	int ret;
+static int msm_lcd_name_create_sysfs(void){
+   int ret;
+   msm_lcd_name=kobject_create_and_add("android_lcd",NULL);
 
-	msm_lcd_name = kobject_create_and_add("android_lcd", NULL);
-	if (msm_lcd_name == NULL) {
-		pr_err("%s: failed\n", __func__);
-		return -ENOMEM;
-	}
-
-	ret = sysfs_create_file(msm_lcd_name, &dev_attr_lcd_name.attr);
-	if (ret) {
-		pr_err("%s: failed\n", __func__);
-		kobject_del(msm_lcd_name);
-	}
-	return 0;
+   if(msm_lcd_name==NULL){
+     pr_info("msm_lcd_name_create_sysfs_ failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+   ret=sysfs_create_file(msm_lcd_name,&dev_attr_lcd_name.attr);
+   if(ret){
+    pr_info("%s failed \n",__func__);
+    kobject_del(msm_lcd_name);
+   }
+   return 0;
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
@@ -4175,31 +4186,31 @@ exit:
 	return rc;
 }
 
-int dsi_panel_set_feature(struct dsi_panel *panel, enum dsi_cmd_set_type type)
+
+int dsi_panel_set_feature(struct dsi_panel *panel,enum dsi_cmd_set_type type)
 {
-	int rc = 0;
+       int rc = 0;
 
-	if (!panel) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
+       if (!panel) {
+               pr_err("Invalid params\n");
+               return -EINVAL;
+       }
+       pr_info("xinj:%s panel_init_judge=%d type=%d,backlight_val = %d\n",__func__,panel_init_judge,type,backlight_val);
+	if ((!panel_init_judge) ||  (!backlight_val)) {	
+		pr_err("xinj: con't set cmds type=%d\n",type);	
+		return -EINVAL;	
 	}
-	pr_info("xinj:%s panel_initialized=%d type=%d\n", __func__,
-		panel->panel_initialized, type);
-	if (!panel->panel_initialized) {
-		pr_err("xinj: con't set cmds type=%d\n", type);
-		return -EINVAL;
-	}
-
+       
 	mutex_lock(&panel->panel_lock);
-	rc = dsi_panel_tx_cmd_set(panel, type);
-	if (rc) {
-		pr_err("[%s] failed to send DSI_CMD_SET_FEATURE_ON/OFF cmds, rc=%d,type=%d\n",
-			panel->name, rc, type);
-	}
-	mutex_unlock(&panel->panel_lock);
-	return rc;
-}
 
+       rc = dsi_panel_tx_cmd_set(panel, type);
+       if (rc) {
+               pr_err("[%s] failed to send DSI_CMD_SET_FEATURE_ON/OFF cmds, rc=%d,type=%d\n",
+                      panel->name, rc,type);
+       }
+       mutex_unlock(&panel->panel_lock);
+       return rc;
+}
 int dsi_panel_send_qsync_on_dcs(struct dsi_panel *panel,
 		int ctrl_idx)
 {
@@ -4411,8 +4422,10 @@ int dsi_panel_enable(struct dsi_panel *panel)
 	if (rc)
 		pr_err("[%s] failed to send DSI_CMD_SET_ON cmds, rc=%d\n",
 		       panel->name, rc);
-	else
+	else {
 		panel->panel_initialized = true;
+		panel_init_judge = true;
+	}
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -4434,6 +4447,7 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
+        panel_init_judge = true;
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -4460,6 +4474,7 @@ int dsi_panel_pre_disable(struct dsi_panel *panel)
 error:
 	mutex_unlock(&panel->panel_lock);
 	panel->panel_initialized = false;
+	panel_init_judge =  false;
 	return rc;
 }
 
@@ -4502,6 +4517,7 @@ int dsi_panel_disable(struct dsi_panel *panel)
 	panel->panel_initialized = false;
 	panel->power_mode = SDE_MODE_DPMS_OFF;
 
+	panel_init_judge = false;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }

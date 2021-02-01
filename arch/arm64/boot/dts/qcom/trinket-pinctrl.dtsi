@@ -660,7 +660,8 @@
 					pins = "gpio18", "gpio19", "gpio20",
 								"gpio21";
 					drive-strength = <6>;
-					bias-disable;
+					bias-pull-down;
+					output-low;
 				};
 			};
 		};

@@ -302,6 +302,7 @@ static int hiddev_open(struct inode *inode, struct file *file)
 	struct usb_interface *intf;
 	struct hid_device *hid;
 	struct hiddev *hiddev;
+	struct hiddev_list *list;
 	int res;
 
 	intf = usbhid_find_interface(iminor(inode));
@@ -312,9 +313,37 @@ static int hiddev_open(struct inode *inode, struct file *file)
 	hiddev = hid->hiddev;
 
 	mutex_lock(&hiddev->existancelock);
-	res = hiddev->exist ? __hiddev_open(hiddev, file) : -ENODEV;
+	/*
+	 * recheck exist with existance lock held to
+	 * avoid opening a disconnected device
+	 */
+	if (!list->hiddev->exist) {
+		res = -ENODEV;
+		goto bail_unlock;
+	}
+	if (!list->hiddev->open++)
+		if (list->hiddev->exist) {
+			struct hid_device *hid = hiddev->hid;
+			res = hid_hw_power(hid, PM_HINT_FULLON);
+			if (res < 0)
+				goto bail_unlock;
+			res = hid_hw_open(hid);
+			if (res < 0)
+				goto bail_normal_power;
+		}
+	mutex_unlock(&hiddev->existancelock);
+	return 0;
+bail_normal_power:
+	hid_hw_power(hid, PM_HINT_NORMAL);
+bail_unlock:
 	mutex_unlock(&hiddev->existancelock);
 
+	spin_lock_irq(&list->hiddev->list_lock);
+	list_del(&list->node);
+	spin_unlock_irq(&list->hiddev->list_lock);
+bail:
+	file->private_data = NULL;
+	vfree(list);
 	return res;
 }
 

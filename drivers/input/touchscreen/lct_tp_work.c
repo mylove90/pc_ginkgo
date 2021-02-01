@@ -43,11 +43,11 @@
  */
 typedef int (*tp_work_cb_t)(bool enable_tp);
 
-typedef struct lct_tp {
+typedef struct lct_tp{
 	bool enable_tp_work_flag;
 	struct proc_dir_entry *proc_entry_tp;
 	tp_work_cb_t pfun;
-} lct_tp_t;
+}lct_tp_t;
 
 /*
  * GLOBAL VARIABLE DEFINITIONS
@@ -68,16 +68,17 @@ static const struct file_operations lct_proc_tp_work_fops = {
 	.write		= lct_proc_tp_work_write,
 };
 
+
 int init_lct_tp_work(tp_work_cb_t callback)
 {
-	if (callback == NULL) {
+	if (NULL == callback) {
 		TP_LOGE("callback is NULL!\n");
 		return -EINVAL;
 	}
 
 	TP_LOGW("Initialization tp_work node!\n");
 	lct_tp_p = kzalloc(sizeof(lct_tp_t), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(lct_tp_p)) {
+	if (IS_ERR_OR_NULL(lct_tp_p)){
 		TP_LOGE("kzalloc() request memory failed!\n");
 		return -ENOMEM;
 	}
@@ -124,7 +125,7 @@ static int lct_creat_proc_tp_entry(void)
 {
 	lct_tp_p->proc_entry_tp = proc_create_data(TP_WORK_NAME, 0444, NULL, &lct_proc_tp_work_fops, NULL);
 	if (IS_ERR_OR_NULL(lct_tp_p->proc_entry_tp)) {
-		TP_LOGE("add /proc/tp_work error\n");
+		TP_LOGE("add /proc/tp_work error \n");
 		return -1;
 	}
 	TP_LOGW("/proc/tp_work is okay!\n");
@@ -134,7 +135,7 @@ static int lct_creat_proc_tp_entry(void)
 
 static ssize_t lct_proc_tp_work_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	ssize_t cnt = 0;
+	ssize_t cnt=0;
 	char *page = NULL;
 
 	if (*ppos)
@@ -199,5 +200,6 @@ exit:
 	return cnt;
 }
 
-MODULE_DESCRIPTION("Touchpad Work Controller Driver");
+MODULE_DESCRIPTION("Touchpad Work Contoller Driver");
 MODULE_LICENSE("GPL");
+

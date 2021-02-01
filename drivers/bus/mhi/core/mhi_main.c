@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1146,7 +1147,7 @@ static void mhi_process_cmd_completion(struct mhi_controller *mhi_cntrl,
 		chan = MHI_TRE_GET_CMD_CHID(cmd_pkt);
 		if (chan >= mhi_cntrl->max_chan) {
 			MHI_ERR("invalid channel id %u\n", chan);
-			break;
+			goto next_er_element;
 		}
 		mhi_chan = &mhi_cntrl->mhi_chan[chan];
 		write_lock_bh(&mhi_chan->lock);

@@ -59,11 +59,11 @@
 &clock_audio_tx_2 {
 	status = "disabled";
 };
-
+/*
 &wsa_spkr_en1 {
 	status = "disabled";
 };
-
+*/
 &rx_swr_gpios {
 	status = "disabled";
 };

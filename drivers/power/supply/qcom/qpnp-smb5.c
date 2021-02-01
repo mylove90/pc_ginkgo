@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@
 #include <linux/notifier.h>
 #include <linux/msm_drm_notify.h>
 #include <linux/fb.h>
+#undef pr_debug
+#define pr_debug pr_err
 
 union power_supply_propval lct_therm_lvl_reserved;
 union power_supply_propval lct_therm_level;
@@ -255,7 +257,7 @@ struct smb5 {
 	struct smb_dt_props	dt;
 };
 
-static int __debug_mask;
+static int __debug_mask = 0xfff;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
@@ -2961,6 +2963,13 @@ static int smb5_init_hw(struct smb5 *chip)
 				rc);
 		return rc;
 	}
+
+	rc = smblib_masked_write(chg,USBIN_9V_AICL_THRESHOLD_REG,USBIN_9V_AICL_MASK,USBIN_9V_AICL_THRESHOLD_CFG);
+	if(rc < 0){
+		dev_err(chg->dev, "Couldn't configure USBIN_9V_AICL_THRESHOLD_REG rc=%d\n",
+				rc);
+		return rc;
+	}
 		/*
 	 * 1. set 0x154a bit2 to 1 to fix huawei scp cable 3A for SDP issue
 	 * 2. set 0x154a bit3 to 0 to enable AICL for debug access mode cable
@@ -3554,7 +3563,7 @@ static int thermal_notifier_callback(struct notifier_block *noti, unsigned long 
 	struct fb_event *ev_data = data;
 	struct smb_charger *chg = container_of(noti, struct smb_charger, notifier);
 	int *blank;
-
+	printk("%s %d",__FUNCTION__,__LINE__);
 	if (ev_data && ev_data->data && chg) {
 		blank = ev_data->data;
 		if (event == MSM_DRM_EARLY_EVENT_BLANK && *blank == MSM_DRM_BLANK_UNBLANK) {
@@ -3836,8 +3845,8 @@ static int smb5_probe(struct platform_device *pdev)
 
 	device_init_wakeup(chg->dev, true);
 
-	lct_therm_lvl_reserved.intval = 0;
-	lct_therm_level.intval = 0;
+	lct_therm_lvl_reserved.intval= 0;
+	lct_therm_level.intval= 0;
 	lct_backlight_off = false;
 	INIT_WORK(&chg->fb_notify_work, thermal_fb_notifier_resume_work);
 	/* register suspend and resume fucntion*/

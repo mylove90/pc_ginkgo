@@ -25,6 +25,7 @@
 #include <linux/usb/class-dual-role.h>
 #include "storm-watch.h"
 #include "battery.h"
+#define NS_QC3_CHG_WA
 
 #define NS_QC3_CHG_WA
 

@@ -393,6 +393,13 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 	 * If efuse register shows value as 0x0, then use previous value
 	 * as it is. Otherwise use efuse register based value for this purpose.
 	 */
+	//add for different usb tunning parameters judged by panal info //add for different usb tuning parameters
+	if(panel_info == 1)
+			qphy->tune2_efuse_correction = -1;
+	else if ( panel_info == 0)
+			 qphy->tune2_efuse_correction = 3; 
+	else 
+			 qphy->tune2_efuse_correction = 0;
 	if (qphy->tune2_efuse_num_of_bits < HSTX_TRIMSIZE) {
 		qphy->tune2_val =
 		     TUNE2_HIGH_NIBBLE_VAL(readl_relaxed(qphy->tune2_efuse_reg),

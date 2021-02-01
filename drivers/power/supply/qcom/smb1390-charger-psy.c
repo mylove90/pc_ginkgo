@@ -25,6 +25,8 @@
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/iio/consumer.h>
+#undef pr_debug
+#define pr_debug pr_err
 
 #define MISC_CSIR_LSB_REG		0x9F1
 #define MISC_CSIR_MSB_REG		0x9F2

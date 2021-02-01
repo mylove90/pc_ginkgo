@@ -20,6 +20,8 @@
 #include <linux/slab.h>
 #include <linux/pmic-voter.h>
 #include "step-chg-jeita.h"
+#undef pr_debug
+#define pr_debug pr_err
 
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"

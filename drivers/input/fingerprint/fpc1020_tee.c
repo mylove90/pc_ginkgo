@@ -18,7 +18,7 @@
  *
  *
  * Copyright (c) 2015 Fingerprint Cards AB <tech@fingerprints.com>
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License Version 2
@@ -58,7 +58,7 @@
 #define NUM_PARAMS_REG_ENABLE_SET 2
 #define PROC_NAME  "hwinfo"
 
-#define tyt_debug printk("tyt %s:%d\n",__func__,__LINE__)
+#define tyt_debug printk("tyt %s:%d\n",__func__,__LINE__) 
 static struct proc_dir_entry *proc_entry;
 extern int fpsensor;
 
@@ -497,7 +497,7 @@ static struct attribute *attributes[] = {
 	&dev_attr_hw_reset.attr,
 	&dev_attr_wakeup_enable.attr,
 	&dev_attr_clk_enable.attr,
-	&dev_attr_irq_enable.attr,
+ 	&dev_attr_irq_enable.attr,
 	&dev_attr_irq.attr,
 	&dev_attr_fingerdown_wait.attr,
 	NULL
@@ -530,7 +530,7 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 		pr_info("fpc schedule_work enter\n");
 		fpc1020->wait_finger_down = false;
 		schedule_work(&fpc1020->work);
-	}
+	}  
 	return IRQ_HANDLED;
 }
 

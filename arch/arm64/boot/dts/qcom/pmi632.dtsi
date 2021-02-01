@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -366,6 +366,8 @@
 			qcom,vbatt-cutoff-mv = <3500>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
+			qcom,s3-entry-ibat-ua = <18000>;
+			qcom,s3-exit-ibat-ua = <38000>;
 			qcom,qg-vadc = <&pmi632_vadc>;
 			io-channels = <&pmi632_vadc ADC_BAT_THERM_PU2>,
 				      <&pmi632_vadc ADC_BAT_ID_PU2>;
@@ -432,7 +434,7 @@
 		pmi632_vib: qcom,vibrator@5700 {
 			compatible = "qcom,qpnp-vibrator-ldo";
 			reg = <0x5700 0x100>;
-			qcom,vib-ldo-volt-uv = <3000000>;
+			qcom,vib-ldo-volt-uv = <3300000>;
 			qcom,disable-overdrive;
 		};
 
@@ -446,8 +448,7 @@
 			nvmem = <&pmi632_sdam7>;
 			qcom,pbs-client = <&pmi632_pbs_client3>;
 			qcom,lut-sdam-base = <0x80>;
-			qcom,lut-patterns = <0 0 0 14 28 42 56 70 84 100
-						100 84 70 56 42 28 14 0 0 0>;
+			qcom,lut-patterns = <50 50 49 47 45 42 39 35 31 27 22 17 11 6  0 0 0 0 0 0 0>;
 			lpg@1 {
 				qcom,lpg-chan-id = <1>;
 				qcom,ramp-step-ms = <200>;

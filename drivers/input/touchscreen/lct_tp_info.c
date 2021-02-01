@@ -44,14 +44,14 @@
  * DATA STRUCTURES
  ****************************************************************************************
  */
-typedef struct lct_tp {
+typedef struct lct_tp{
 	struct kobject *tp_device;
 	char tp_info_buf[LCT_STRING_SIZE];
 	char tp_lockdown_info_buf[LCT_STRING_SIZE];
 	struct proc_dir_entry *proc_entry_tp_info;
 	struct proc_dir_entry *proc_entry_tp_lockdown_info;
 	int (*pfun_info_cb)(const char *);
-} lct_tp_t;
+}lct_tp_t;
 
 /*
  * GLOBAL VARIABLE DEFINITIONS
@@ -78,14 +78,14 @@ int init_lct_tp_info(char *tp_info_buf, char *tp_lockdown_info_buf)
 {
 	TP_LOGW("init /proc/%s and /proc/%s ...\n", TP_INFO_NAME, TP_LOCKDOWN_INFO_NAME);
 	lct_tp_p = kzalloc(sizeof(lct_tp_t), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(lct_tp_p)) {
+	if (IS_ERR_OR_NULL(lct_tp_p)){
 		TP_LOGE("kzalloc() request memory failed!\n");
 		return -ENOMEM;
 	}
 
-	if (tp_info_buf != NULL)
+	if (NULL != tp_info_buf)
 		strcpy(lct_tp_p->tp_info_buf, tp_info_buf);
-	if (tp_lockdown_info_buf != NULL)
+	if (NULL != tp_lockdown_info_buf)
 		strcpy(lct_tp_p->tp_lockdown_info_buf, tp_lockdown_info_buf);
 
 	lct_tp_p->proc_entry_tp_info = proc_create_data(TP_INFO_NAME, 0444, NULL, &lct_proc_tp_info_fops, NULL);
@@ -137,11 +137,11 @@ EXPORT_SYMBOL(uninit_lct_tp_info);
 
 void update_lct_tp_info(char *tp_info_buf, char *tp_lockdown_info_buf)
 {
-	if (tp_info_buf != NULL) {
+	if (NULL != tp_info_buf) {
 		memset(lct_tp_p->tp_info_buf, 0, sizeof(lct_tp_p->tp_info_buf));
 		strcpy(lct_tp_p->tp_info_buf, tp_info_buf);
 	}
-	if (tp_lockdown_info_buf != NULL) {
+	if (NULL != tp_lockdown_info_buf) {
 		memset(lct_tp_p->tp_lockdown_info_buf, 0, sizeof(lct_tp_p->tp_lockdown_info_buf));
 		strcpy(lct_tp_p->tp_lockdown_info_buf, tp_lockdown_info_buf);
 	}
@@ -151,7 +151,7 @@ EXPORT_SYMBOL(update_lct_tp_info);
 
 void set_lct_tp_info_callback(int (*pfun)(const char *))
 {
-	if (lct_tp_p != NULL)
+	if (NULL != lct_tp_p)
 		lct_tp_p->pfun_info_cb = pfun;
 	return;
 }
@@ -166,19 +166,19 @@ EXPORT_SYMBOL(set_lct_tp_lockdown_info_callback);
 
 static ssize_t lct_proc_tp_info_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	int cnt = 0;
+	int cnt=0;
 	char *page = NULL;
 
 	//TP_LOGW("size = %lu, pos = %lld\n", size, *ppos);
 	if (*ppos)
 		return 0;
 
-	if (lct_tp_p->pfun_info_cb != NULL)
+	if (NULL != lct_tp_p->pfun_info_cb)
 		lct_tp_p->pfun_info_cb(TP_CALLBACK_CMD_INFO);
 
 	page = kzalloc(128, GFP_KERNEL);
 
-	if (lct_tp_p->tp_info_buf == NULL)
+	if(NULL == lct_tp_p->tp_info_buf)
 		cnt = sprintf(page, "No touchpad\n");
 	else
 		cnt = sprintf(page, "%s", (strlen(lct_tp_p->tp_info_buf) ? lct_tp_p->tp_info_buf : "Unknown touchpad"));
@@ -194,21 +194,21 @@ static ssize_t lct_proc_tp_info_read(struct file *file, char __user *buf, size_t
 
 static ssize_t lct_proc_tp_lockdown_info_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	int cnt = 0;
+	int cnt=0;
 	char *page = NULL;
 
 	if (*ppos)
 		return 0;
 
-	if (lct_tp_p->pfun_info_cb != NULL)
+	if (NULL != lct_tp_p->pfun_info_cb)
 		lct_tp_p->pfun_info_cb(TP_CALLBACK_CMD_LOCKDOWN);
 
-	if (pfun_lockdown_cb != NULL)
+	if (NULL != pfun_lockdown_cb)
 		pfun_lockdown_cb();
 
 	page = kzalloc(128, GFP_KERNEL);
 
-	if (lct_tp_p->tp_lockdown_info_buf == NULL)
+	if(NULL == lct_tp_p->tp_lockdown_info_buf)
 		cnt = sprintf(page, "No touchpad\n");
 	else
 		cnt = sprintf(page, "%s", (strlen(lct_tp_p->tp_lockdown_info_buf) ? lct_tp_p->tp_lockdown_info_buf : "Unknown touchpad"));

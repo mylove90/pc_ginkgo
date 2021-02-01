@@ -986,7 +986,7 @@ void pm_system_irq_wakeup(unsigned int irq_number)
 			pr_warn("%s: %d triggered %s\n", __func__,
 					irq_number, name);
 
-			log_wakeup_reason(irq_number); /*Add-HMI_M516_A01-51*/
+			log_irq_wakeup_reason(irq_number); /*Add-HMI_M516_A01-51*/
 
 		}
 		pm_wakeup_irq = irq_number;
@@ -1190,7 +1190,42 @@ static int wakeup_sources_stats_seq_show(struct seq_file *m, void *v)
 
 	print_wakeup_source_stats(m, ws);
 
-	print_wakeup_source_stats(m, &deleted_ws);
+	return NULL;
+}
+
+static void *wakeup_sources_stats_seq_next(struct seq_file *m,
+					void *v, loff_t *pos)
+{
+	struct wakeup_source *ws = v;
+	struct wakeup_source *next_ws = NULL;
+
+	++(*pos);
+
+	list_for_each_entry_continue_rcu(ws, &wakeup_sources, entry) {
+		next_ws = ws;
+		break;
+	}
+
+	return next_ws;
+}
+
+static void wakeup_sources_stats_seq_stop(struct seq_file *m, void *v)
+{
+	int *srcuidx = m->private;
+
+	srcu_read_unlock(&wakeup_srcu, *srcuidx);
+}
+
+/**
+ * wakeup_sources_stats_seq_show - Print wakeup sources statistics information.
+ * @m: seq_file to print the statistics into.
+ * @v: wakeup_source of each iteration
+ */
+static int wakeup_sources_stats_seq_show(struct seq_file *m, void *v)
+{
+	struct wakeup_source *ws = v;
+
+	print_wakeup_source_stats(m, ws);
 
 	return 0;
 }

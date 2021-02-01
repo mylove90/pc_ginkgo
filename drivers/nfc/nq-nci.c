@@ -1,5 +1,5 @@
 /* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1028,19 +1028,28 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 		}
 		goto err_nfcc_reset_failed;
 	}
+
 	ret = is_data_available_for_read(nqx_dev);
 	if (ret <= 0) {
 		nqx_disable_irq(nqx_dev);
 		goto err_nfcc_hw_check;
+	/* hardware dependent delay */
+	msleep(30);
 	}
 
 	/* Read Header of RESET command */
 	ret = i2c_master_recv(client, nci_reset_rsp, NCI_HEADER_LEN);
 	if (ret != NCI_HEADER_LEN) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_recv get RESET rsp header Error\n", __func__);
+		"%s: - i2c_master_recv Error\n", __func__);
+		gpio_retry_count = gpio_retry_count + 1;
+		if (gpio_retry_count < MAX_RETRY_COUNT)
+			goto reset_enable_gpio;
 		goto err_nfcc_hw_check;
 	}
+
+	/* hardware dependent delay */
+	msleep(30);
 
 	ret = i2c_master_recv(client, &nci_reset_rsp[NCI_PAYLOAD_START_INDEX],
 				nci_reset_rsp[NCI_PAYLOAD_LENGTH_INDEX]);
@@ -1113,6 +1122,7 @@ done:
 
 	return ret;
 }
+#endif
 
 /*
  * Routine to enable clock.
@@ -1439,6 +1449,8 @@ static int nqx_probe(struct i2c_client *client,
 	}
 	nqx_disable_irq(nqx_dev);
 
+	/* Do not perform nfcc_hw_check, make sure that nfcc is present */
+#if 0
 	/*
 	 * To be efficient we need to test whether nfcc hardware is physically
 	 * present before attempting further hardware initialisation.
@@ -1451,6 +1463,7 @@ static int nqx_probe(struct i2c_client *client,
 		/* We don't think there is hardware switch NFC OFF */
 		goto err_request_hw_check_failed;
 	}
+#endif
 
 	/* Register reboot notifier here */
 	r = register_reboot_notifier(&nfcc_notifier);

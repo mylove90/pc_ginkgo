@@ -1,5 +1,5 @@
 /* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -264,18 +264,20 @@ struct flash_switch_data {
 	bool				symmetry_en;
 };
 
+//start
 struct flashlight_node_data {
-	struct platform_device		*pdev;
-	const char			**torch_name;
-	const char			**switch_name;
-	u8				num_torch;
-	u8				num_switch;
+	struct platform_device	*pdev;
+	const char				**torch_name;
+	const char				**switch_name;
+	u8						num_torch;
+	u8						num_switch;
 	struct led_classdev		cdev;
-	u8				id;
-	bool				led_on;
+	u8						id;
+	bool					led_on;
 };
-#define NAME_SIZE	20
 
+#define NAME_SIZE	20
+//end
 /*
  * Flash LED configuration read from device tree
  */
@@ -771,11 +773,8 @@ static int get_property_from_fg(struct qpnp_flash_led *led,
 	union power_supply_propval pval = {0, };
 
 	if (!led->bms_psy) {
-		led->bms_psy = power_supply_get_by_name("bms");
-		if (!led->bms_psy) {
-			pr_err_ratelimited("Couldn't get bms_psy\n");
-			return -ENODEV;
-		}
+		pr_err("no bms psy found\n");
+		return -EINVAL;
 	}
 
 	rc = power_supply_get_property(led->bms_psy, prop, &pval);
@@ -1781,9 +1780,11 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 	} else if (fnode) {
 		qpnp_flash_led_node_set(fnode, value);
 	}
-	if (!strcmp("led:switch_0", led_cdev->name) && !value)
-		if (led->flashlight_node != NULL)
+//start
+	if(!strcmp("led:switch_0",led_cdev->name) && !value)
+		if(NULL != led->flashlight_node)
 			led->flashlight_node->cdev.brightness = value;
+//end
 	spin_unlock(&led->lock);
 }
 
@@ -1809,26 +1810,25 @@ static ssize_t qpnp_flash_led_prepare_store(struct device *dev,
 
 	return count;
 }
-
+//start
 static void qpnp_flashlight_led_brightness_set(struct led_classdev *led_cdev,
-					       enum led_brightness value)
+						enum led_brightness value)
 {
 	struct flashlight_node_data *flashlight_data = NULL;
 	struct qpnp_flash_led *led = NULL;
 	int rc;
 	int i, j;
-
+	
 #ifdef CONFIG_KERNEL_CUSTOM_F7A
-	if (value == 100)
+	if (100 == value)
 		value = 70;
 #endif
-	if (value == 100)
+
+	if (50 == value)
 		value = 25;
 
 	if (!strcmp("flashlight", led_cdev->name)) {
-		flashlight_data = container_of(led_cdev,
-					       struct flashlight_node_data,
-					       cdev);
+		flashlight_data = container_of(led_cdev, struct flashlight_node_data, cdev);
 		led = dev_get_drvdata(&flashlight_data->pdev->dev);
 	}
 
@@ -1836,57 +1836,43 @@ static void qpnp_flashlight_led_brightness_set(struct led_classdev *led_cdev,
 		pr_err("Failed to get flash driver data\n");
 		return;
 	}
-
+	
 	spin_lock(&led->lock);
 	if (flashlight_data) {
-		for (i = 0; i < flashlight_data->num_switch; ++i)
-			for (j = 0; j < led->num_snodes; ++j) {
-				pr_debug("switch name[%d]=%s, snode name[%d]=%s\n",
-					 i, flashlight_data->switch_name[i], j,
-					 led->snode[j].cdev.name);
-				if (!strcmp(flashlight_data->switch_name[i],
-					    led->snode[j].cdev.name)) {
-					rc = qpnp_flash_led_switch_set
-						(&led->snode[j], false);
-					if (rc < 0)
-						pr_err("Failed to set flash LED switch rc=%d\n",
-						       rc);
+		for(i = 0; i < flashlight_data->num_switch; ++i)
+			for(j = 0; j < led->num_snodes; ++j) {
+				pr_debug(" switch name[%d] = %s, snode name[%d] = %s\n",i, flashlight_data->switch_name[i],j, led->snode[j].cdev.name);
+				if(!strcmp(flashlight_data->switch_name[i], led->snode[j].cdev.name)) {
+					rc = qpnp_flash_led_switch_set(&led->snode[j], false);
+				if (rc < 0)
+					pr_err("Failed to set flash LED switch rc=%d\n", rc);
 					break;
 				}
 			}
 
-		for (i = 0; i < flashlight_data->num_torch; ++i)
-			for (j = 0; j < led->num_fnodes; ++j) {
-				pr_debug("torch name[%d]=%s, fnode name[%d]=%s\n",
-					 i, flashlight_data->torch_name[i], j,
-					 led->fnode[j].cdev.name);
-				if (!strcmp(flashlight_data->torch_name[i],
-					    led->fnode[j].cdev.name)) {
-					qpnp_flash_led_node_set(&led->fnode[j],
-								value);
+		for(i = 0; i < flashlight_data->num_torch; ++i)
+			for(j = 0; j < led->num_fnodes; ++j) {
+				pr_debug(" torch name[%d] = %s, fnode name[%d] = %s\n",i, flashlight_data->torch_name[i],j, led->fnode[j].cdev.name);
+				if(!strcmp(flashlight_data->torch_name[i], led->fnode[j].cdev.name)) {
+					qpnp_flash_led_node_set(&led->fnode[j], value);
 					break;
 				}
 			}
-
-		for (i = 0; i < flashlight_data->num_switch; ++i)
-			for (j = 0; j < led->num_snodes; ++j) {
-				pr_debug("switch name[%d]=%s, snode name[%d]=%s\n",
-					 i, flashlight_data->switch_name[i], j,
-					 led->snode[j].cdev.name);
-				if (!strcmp(flashlight_data->switch_name[i],
-					    led->snode[j].cdev.name)) {
-					rc = qpnp_flash_led_switch_set(&led->snode[j],
-								       value > 0);
-					if (rc < 0)
-						pr_err("Failed to set flash LED switch rc=%d\n",
-						       rc);
+		
+		for(i = 0; i < flashlight_data->num_switch; ++i)
+			for(j = 0; j < led->num_snodes; ++j) {
+				pr_debug(" switch name[%d] = %s, snode name[%d] = %s\n",i, flashlight_data->switch_name[i],j, led->snode[j].cdev.name);
+				if(!strcmp(flashlight_data->switch_name[i], led->snode[j].cdev.name)) {
+					rc = qpnp_flash_led_switch_set(&led->snode[j], value > 0);
+				if (rc < 0)
+					pr_err("Failed to set flash LED switch rc=%d\n", rc);
 					break;
 				}
 			}
 	}
 	spin_unlock(&led->lock);
 }
-
+//end
 /* sysfs show function for flash_max_current */
 static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1911,6 +1897,41 @@ static struct device_attribute qpnp_flash_led_attrs[] = {
 	__ATTR(max_current, 0664, qpnp_flash_led_max_current_show, NULL),
 	__ATTR(enable, 0664, NULL, qpnp_flash_led_prepare_store),
 };
+
+static int flash_led_psy_notifier_call(struct notifier_block *nb,
+		unsigned long ev, void *v)
+{
+	struct power_supply *psy = v;
+	struct qpnp_flash_led *led =
+			container_of(nb, struct qpnp_flash_led, nb);
+
+	if (ev != PSY_EVENT_PROP_CHANGED)
+		return NOTIFY_OK;
+
+	if (!strcmp(psy->desc->name, "bms")) {
+		led->bms_psy = power_supply_get_by_name("bms");
+		if (!led->bms_psy)
+			pr_err("Failed to get bms power_supply\n");
+		else
+			power_supply_unreg_notifier(&led->nb);
+	}
+
+	return NOTIFY_OK;
+}
+
+static int flash_led_psy_register_notifier(struct qpnp_flash_led *led)
+{
+	int rc;
+
+	led->nb.notifier_call = flash_led_psy_notifier_call;
+	rc = power_supply_reg_notifier(&led->nb);
+	if (rc < 0) {
+		pr_err("Couldn't register psy notifier, rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
 
 /* irq handler */
 static irqreturn_t qpnp_flash_led_irq_handler(int irq, void *_led)
@@ -2176,9 +2197,11 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	fnode->strobe_ctrl = (hw_strobe << 2) | (edge_trigger << 1) |
 				active_high;
 
-	if (fnode->type == FLASH_LED_TYPE_TORCH)
-		fnode->cdev.flags |= LED_KEEP_TRIGGER;
+	if(fnode->type == FLASH_LED_TYPE_TORCH)  //fix torch not work after cit led test
+	{
 
+ 		  fnode->cdev.flags |= LED_KEEP_TRIGGER;
+	}
 	rc = led_classdev_register(&led->pdev->dev, &fnode->cdev);
 	if (rc < 0) {
 		pr_err("Unable to register led node %d\n", fnode->id);
@@ -2228,20 +2251,19 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 	return 0;
 }
 
+//start
 static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
-						  struct flashlight_node_data *flashlight_node,
-						  struct device_node *node)
+			struct flashlight_node_data *flashlight_node, struct device_node *node)
 {
-	int rc, i;
-	u32 val, count;
+	int rc,i;
+	u32 val,count;
 	const char **temp_name;
 
 	flashlight_node->pdev = led->pdev;
 	flashlight_node->cdev.brightness_set = qpnp_flashlight_led_brightness_set;
 	flashlight_node->cdev.brightness_get = qpnp_flash_led_brightness_get;
 
-	rc = of_property_read_string(node, "qcom,led-name",
-				     &flashlight_node->cdev.name);
+	rc = of_property_read_string(node, "qcom,led-name", &flashlight_node->cdev.name);
 	if (rc < 0) {
 		pr_err("Unable to read flash LED names\n");
 		return rc;
@@ -2254,24 +2276,20 @@ static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
 		return -EINVAL;
 	} else
 		flashlight_node->num_torch = count;
-
-	pr_debug("%s qcom,torch-name count %d\n",
-		 __func__, flashlight_node->num_torch);
-
+	pr_debug("%s qcom,torch-name count %d\n", __func__, flashlight_node->num_torch);
+	
 	temp_name = kzalloc(sizeof(char *) * count, GFP_KERNEL);
-	if (temp_name) {
-		for (i = 0; i < count; ++i) {
+	if(temp_name) {
+		for(i = 0; i < count; ++i) {
 			flashlight_node->torch_name = temp_name;
-			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE, GFP_KERNEL);
-			rc = of_property_read_string_index(node, "qcom,torch-name",
-							   i, &temp_name[i]);
-			pr_debug("%s torch_name[%d] = %s\n",
-				 __func__, i, flashlight_node->torch_name[i]);
+			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE,GFP_KERNEL);
+			rc = of_property_read_string_index(node,"qcom,torch-name", i,&temp_name[i]);
+			pr_debug("%s torch_name[%d] = %s\n", __func__, i,flashlight_node->torch_name[i]);
 		}
 	} else
-		pr_err("%s alloc torch_name failed!!!\n", __func__);
+		pr_err("%s alloc torch_name faild!!!\n",__func__);
 
-
+	
 	count = of_property_count_strings(node, "qcom,switch-name");
 	if (!count || (count == -EINVAL)) {
 		pr_err("%s:%d number of entries is 0 or not present in dts\n",
@@ -2279,22 +2297,19 @@ static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
 		return -EINVAL;
 	} else
 		flashlight_node->num_switch = count;
-
 	pr_debug("%s qcom,switch-name count %d\n", __func__, count);
-
+	
 	temp_name = kzalloc(sizeof(char *) * count, GFP_KERNEL);
-	if (temp_name) {
-		for (i = 0; i < count; ++i) {
+	if(temp_name) {
+		for(i = 0; i < count; ++i) {
 			flashlight_node->switch_name = temp_name;
-			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE, GFP_KERNEL);
-			rc = of_property_read_string_index(node, "qcom,switch-name",
-							   i, &temp_name[i]);
-			pr_debug("%s switch_name[%d] = %s\n",
-				 __func__, i, flashlight_node->switch_name[i]);
+			temp_name[i] = kzalloc(sizeof(char) * NAME_SIZE,GFP_KERNEL);
+			rc = of_property_read_string_index(node,"qcom,switch-name", i,&temp_name[i]);
+			pr_debug("%s switch_name[%d] = %s\n", __func__, i,flashlight_node->switch_name[i]);
 		}
 	} else
-		pr_err("%s alloc switch_name failed!!!\n", __func__);
-
+		pr_err("%s alloc switch_name faild!!!\n",__func__);
+		
 	rc = of_property_read_u32(node, "qcom,id", &val);
 	if (!rc) {
 		flashlight_node->id = (u8)val;
@@ -2302,17 +2317,17 @@ static int qpnp_flashlight_led_parse_and_register(struct qpnp_flash_led *led,
 		pr_err("Unable to read flashlight LED ID\n");
 		return rc;
 	}
-
+	
 	rc = led_classdev_register(&led->pdev->dev, &flashlight_node->cdev);
 	if (rc < 0) {
-		pr_err("Unable to register flashlight node %d\n",
-		       flashlight_node->id);
+		pr_err("Unable to register flashlight node %d\n", flashlight_node->id);
 		return rc;
 	}
 
 	flashlight_node->cdev.dev->of_node = node;
 	return 0;
 }
+//end
 
 static int qpnp_flash_led_parse_and_register_switch(struct qpnp_flash_led *led,
 						struct flash_switch_data *snode,
@@ -2900,9 +2915,9 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		} else if (!strcmp("flash", temp_string) ||
 				!strcmp("torch", temp_string)) {
 			led->num_fnodes++;
-		} else if (!strcmp("flashlight", temp_string)) {
+		} else if (!strcmp("flashlight", temp_string)){
 			led->num_flashlight_nodes++;
-		} else {
+		}else {
 			pr_err("Invalid label for led node\n");
 			return -EINVAL;
 		}
@@ -2924,13 +2939,13 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 	if (!led->snode)
 		return -ENOMEM;
-
+//start
 	led->flashlight_node = devm_kcalloc(&pdev->dev, led->num_flashlight_nodes,
-					    sizeof(*led->flashlight_node),
-					    GFP_KERNEL);
+				sizeof(*led->flashlight_node),
+			GFP_KERNEL);
 	if (!led->flashlight_node)
 		return -ENOMEM;
-
+//end
 	temp = NULL;
 	i = 0;
 	j = 0;
@@ -2964,10 +2979,10 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			}
 			j++;
 		}
-
+//start
 		if (!strcmp("flashlight", temp_string)) {
 			rc = qpnp_flashlight_led_parse_and_register(led,
-					&led->flashlight_node[k], temp);
+					&led->flashlight_node[k],temp);
 			if (rc < 0) {
 				pr_err("Unable to parse and register flashlight node, rc=%d\n",
 					rc);
@@ -2975,6 +2990,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 			}
 			k++;
 		}
+//end
 	}
 
 	/* setup irqs */
@@ -3013,6 +3029,15 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		if (rc < 0) {
 			pr_err("Unable to request led_fault(%d) IRQ(err:%d)\n",
 				led->pdata->led_fault_irq, rc);
+			goto error_switch_register;
+		}
+	}
+
+	led->bms_psy = power_supply_get_by_name("bms");
+	if (!led->bms_psy) {
+		rc = flash_led_psy_register_notifier(led);
+		if (rc < 0) {
+			pr_err("Couldn't register psy notifier, rc = %d\n", rc);
 			goto error_switch_register;
 		}
 	}

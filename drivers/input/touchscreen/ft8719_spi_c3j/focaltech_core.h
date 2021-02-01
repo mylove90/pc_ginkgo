@@ -3,7 +3,7 @@
  * FocalTech TouchScreen driver.
  *
  * Copyright (c) 2012-2019, Focaltech Ltd. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -248,6 +248,10 @@ void fts_release_apk_debug_channel(struct fts_ts_data *);
 /* Longcheer procfs */
 int lct_create_procfs(struct fts_ts_data *ts_data);
 int lct_remove_procfs(struct fts_ts_data *ts_data);
+
+/* Longcheer get firmware version */
+int lct_fts_get_tpfwver(const char *cmd);
+
 #if FTS_GESTURE_EN
 int lct_fts_tp_gesture_callback(bool flag);
 #endif

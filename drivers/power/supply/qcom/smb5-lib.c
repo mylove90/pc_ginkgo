@@ -33,9 +33,12 @@
 #endif
 #ifdef NS_QC3_CHG_WA
 #define COLLAPSE_DETACH_MAX_INTERVAL ((unsigned long)5)
-#define ATTACH_DETACH_MAX_INTERVAL ((unsigned long)400)
-#define DETACH_ATTACH_MAX_INTERVAL ((unsigned long)65)
+#define ATTACH_DETACH_MAX_INTERVAL ((unsigned long)310)
+#define DETACH_ATTACH_MAX_INTERVAL ((unsigned long)330)
 #endif
+#undef pr_debug
+#define pr_debug pr_err
+
 #if (defined CONFIG_TOUCHSCREEN_XIAOMI_C3J) || (defined CONFIG_TOUCHSCREEN_XIAOMI_C3X)
 
 typedef struct touchscreen_usb_plugin_data {
@@ -1115,8 +1118,7 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 			chg->usb_psy_desc.type = apsd_result->pst;
 	}
 
-	smblib_dbg(chg, PR_MISC, "APSD=%s PD=%d QC3P5=%d\n",
-			apsd_result->name, chg->pd_active, chg->qc3p5_detected);
+	smblib_err(chg,"APSD=%s PD=%d\n",apsd_result->name, chg->pd_active);
 	return apsd_result;
 }
 
@@ -2180,7 +2182,7 @@ int smblib_get_prop_batt_health(struct smb_charger *chg,
 			 * If Vbatt is within 40mV above Vfloat, then don't
 			 * treat it as overvoltage.
 			 */
-			effective_fv_uv = get_effective_result(chg->fv_votable);
+			effective_fv_uv = get_effective_result_locked(chg->fv_votable);
 			if (pval.intval >= effective_fv_uv + 40000) {
 				val->intval = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 				smblib_err(chg, "battery over-voltage vbat_fg = %duV, fv = %duV\n",
@@ -2423,9 +2425,8 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	if (val->intval > chg->thermal_levels)
 		return -EINVAL;
 
-	pr_info("%s val=%d, chg->system_temp_level=%d, LctThermal=%d, lct_backlight_off= %d, IsInCall=%d\n ",
-		__func__, val->intval, chg->system_temp_level,
-		LctThermal, lct_backlight_off, LctIsInCall);
+	pr_info("%s val=%d, chg->system_temp_level=%d, LctThermal=%d, lct_backlight_off= %d, IsInCall=%d \n " 
+		,__FUNCTION__,val->intval,chg->system_temp_level, LctThermal, lct_backlight_off, LctIsInCall);
 
 	if (LctThermal == 0) { //from therml-engine always store lvl_sel
 		lct_therm_lvl_reserved.intval = val->intval;
@@ -3688,15 +3689,16 @@ static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 	case SNK_RP_STD_DAM_BIT:
 	case SNK_RP_1P5_DAM_BIT:
 	case SNK_RP_3P0_DAM_BIT:
+	case SNK_DAM_500MA_BIT:
+	case SNK_DAM_1500MA_BIT:
+	case SNK_DAM_3000MA_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
 	case SNK_RP_3P0_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;
 	case SNK_RP_SHORT_BIT:
 		return POWER_SUPPLY_TYPEC_NON_COMPLIANT;
-	case SNK_DAM_500MA_BIT:
-	case SNK_DAM_1500MA_BIT:
-	case SNK_DAM_3000MA_BIT:
-		return POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY;
+
+
 	default:
 		break;
 	}
@@ -5297,7 +5299,13 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 	bool vbus_rising;
 	struct smb_irq_data *data;
 	struct storm_watch *wdata;
-
+#if 0
+	#ifdef NS_QC3_CHG_WA
+	static unsigned long detach_time;
+	static unsigned long attach_time;
+	static bool need_confirm = false;
+	#endif
+#endif
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
@@ -5373,6 +5381,18 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		#endif
 		cancel_delayed_work_sync(&chg->pr_swap_detach_work);
 		vote(chg->awake_votable, DETACH_DETECT_VOTER, false, 0);
+	#ifdef NS_QC3_CHG_WA
+		attach_time = jiffies;
+		smblib_err(chg, "attach_time = %lu\n", attach_time);
+		if (need_confirm && attach_time - detach_time < DETACH_ATTACH_MAX_INTERVAL) {
+			rc = smblib_masked_write(chg, USBIN_OPTIONS_1_CFG_REG, HVDCP_EN_BIT, 0);
+			if (rc < 0)
+				smblib_err(chg, "XIAOMI can't disable HVDCP for workaround\n");
+			else
+				chg->hvdcp_disabled = true;
+		}
+		need_confirm = false;
+	#endif
 		rc = smblib_request_dpdm(chg, true);
 		if (rc < 0)
 			smblib_err(chg, "Couldn't to enable DPDM rc=%d\n", rc);
@@ -5465,6 +5485,9 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 			smblib_err(chg, "Couldn't disable DPDM rc=%d\n", rc);
 
 		smblib_update_usb_type(chg);
+		if(chg->use_extcon)
+			smblib_notify_device_mode(chg, false);
+		vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);//remove USB_PSY voting when plgin detach
 	}
 
 	if (chg->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)
@@ -5541,7 +5564,15 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 				dev_err(chg->dev,
 				"Couldn't enable secondary chargers  rc=%d\n",
 					rc);
-		}
+			}else if(apsd_result->bit & QC_2P0_BIT) {
+				//pr_info("force 9V for QC2 charger\n");
+    			//msleep(3000);
+				//rc = smblib_force_vbus_voltage(chg, FORCE_9V_BIT);
+				//if (rc < 0)
+				//	pr_err("Failed to force 9V\n");
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
+					HVDCP2_CURRENT_UA);
+			}
 
 		/* QC3.5 detection timeout */
 		if (!chg->apsd_ext_timeout &&
