@@ -8649,6 +8649,9 @@ static void perf_event_addr_filters_apply(struct perf_event *event)
 		if (!mm)
 			goto restart;
 
+	mm = get_task_mm(task);
+	if (!mm)
+		goto restart;
 		down_read(&mm->mmap_sem);
 	}
 
