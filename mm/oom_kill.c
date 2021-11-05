@@ -1115,6 +1115,9 @@ void pagefault_out_of_memory(void)
 	if (fatal_signal_pending(current))
 		return;
 
+	if (!mutex_trylock(&oom_lock))
+		return;
+
 	if (__ratelimit(&pfoom_rs))
 		pr_warn("Huh VM_FAULT_OOM leaked out to the #PF handler. Retrying PF\n");
 }
