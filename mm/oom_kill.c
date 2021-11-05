@@ -1106,21 +1106,16 @@ void pagefault_out_of_memory(void)
 	static DEFINE_RATELIMIT_STATE(pfoom_rs, DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
 
-	if (IS_ENABLED(CONFIG_HAVE_LOW_MEMORY_KILLER))
-		return;
-
 	if (mem_cgroup_oom_synchronize(true))
 		return;
 
 	if (fatal_signal_pending(current))
 		return;
 
-	if (!mutex_trylock(&oom_lock))
-		return;
-
 	if (__ratelimit(&pfoom_rs))
 		pr_warn("Huh VM_FAULT_OOM leaked out to the #PF handler. Retrying PF\n");
 }
+
 
 /* Call this function with task_lock being held as we're accessing ->mm */
 void dump_killed_info(struct task_struct *selected)
