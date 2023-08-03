@@ -388,12 +388,12 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif_queue *que
 		frag_set_pending_idx(&frags[shinfo->nr_frags], pending_idx);
 	}
 
-	if (frag_overflow) {
+	if (nr_slots > 0) {
 
 		shinfo = skb_shinfo(nskb);
 		frags = shinfo->frags;
 
-		for (shinfo->nr_frags = 0; shinfo->nr_frags < frag_overflow;
+		for (shinfo->nr_frags = 0; shinfo->nr_frags < nr_slots;
 		     shinfo->nr_frags++, txp++, gop++) {
 			index = pending_index(queue->pending_cons++);
 			pending_idx = queue->pending_ring[index];
@@ -404,6 +404,11 @@ static struct gnttab_map_grant_ref *xenvif_get_requests(struct xenvif_queue *que
 		}
 
 		skb_shinfo(skb)->frag_list = nskb;
+	} else if (nskb) {
+		/* A frag_list skb was allocated but it is no longer needed
+		 * because enough slots were converted to copy ops above.
+		 */
+		kfree_skb(nskb);
 	}
 
 	return gop;
