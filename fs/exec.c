@@ -1725,16 +1725,16 @@ static void android_service_blacklist(const char *name)
 	};
 #undef FULL
 #undef PREFIX
-/*	int i;
+	int i;
 
 	for (i = 0; i < ARRAY_SIZE(blacklist); i++) {
 		if (!strncmp(blacklist[i].path, name, blacklist[i].len)) {
 			pr_info("%s: sending SIGSTOP to %s\n", __func__, name);
 			do_send_sig_info(SIGSTOP, SEND_SIG_PRIV, current,
-					 PIDTYPE_TGID);
+					 __PIDTYPE_TGID);
 			break;
 		}
-	}*/
+	}
 }
 
 /*
