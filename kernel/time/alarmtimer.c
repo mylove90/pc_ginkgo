@@ -102,7 +102,6 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 				struct class_interface *class_intf)
 {
 	unsigned long flags;
-	int err = 0;
 	struct rtc_device *rtc = to_rtc_device(dev);
 	struct wakeup_source *__ws;
 	int ret = 0;
@@ -122,8 +121,8 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 			goto unlock;
 		}
 
-		err = rtc_irq_register(rtc, &alarmtimer_rtc_task);
-		if (err)
+		ret = rtc_irq_register(rtc, &alarmtimer_rtc_task);
+		if (ret)
 			goto unlock;
 
 		rtcdev = rtc;
@@ -132,6 +131,7 @@ static int alarmtimer_rtc_add_device(struct device *dev,
 		ws = __ws;
 		__ws = NULL;
 	}
+
 unlock:
 	spin_unlock_irqrestore(&rtcdev_lock, flags);
 

@@ -30,6 +30,7 @@
 #include <linux/percpu.h>
 #include <linux/slab.h>
 #include <linux/msm_rtb.h>
+#include <linux/wakeup_reason.h>
 
 #include <linux/irqchip.h>
 #include <linux/irqchip/arm-gic-common.h>
@@ -474,7 +475,7 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 
 		pr_warn("%s: %d triggered %s\n", __func__, irq, name);
 
-		log_wakeup_reason(irq); /*Add-HMI_M516_A01-51*/
+		log_irq_wakeup_reason(irq); /*Add-HMI_M516_A01-51*/
 
 	}
 }
@@ -576,6 +577,8 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 			err = handle_domain_irq(gic_data.domain, irqnr, regs);
 			if (err) {
 				WARN_ONCE(true, "Unexpected interrupt received!\n");
+				log_abnormal_wakeup_reason(
+						"unexpected HW IRQ %u", irqnr);
 				if (static_key_true(&supports_deactivate)) {
 					if (irqnr < 8192)
 						gic_write_dir(irqnr);
