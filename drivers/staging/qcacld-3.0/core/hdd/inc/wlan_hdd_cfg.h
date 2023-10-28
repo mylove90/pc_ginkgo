@@ -2318,6 +2318,34 @@ enum hdd_dot11_mode {
 
 /*
  * <ini>
+ * roam_data_rssi_threshold_triggers - Triggers of data rssi threshold for roam
+ * @Min: 0
+ * @Max: 0xffff
+ * @Default: 0
+ *
+ * If the DUT is connected to an AP with weak signal, during latest
+ * rx_data_inactivity_time, if there is no activity or avg of data_rssi is
+ * better than roam_data_rssi_threshold(-70dbM), then suppress roaming
+ * triggered by roam_data_rssi_threshold_triggers: low RSSI or bg scan.
+ * Triggers bitmap definition:
+ * ROAM_DATA_RSSI_FLAG_LOW_RSSI   1<<0
+ * ROAM_DATA_RSSI_FLAG_BACKGROUND 1<<1
+ *
+ * Related: None
+ *
+ * Supported Feature: Roaming
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_TRIGGERS_NAME  "roam_data_rssi_threshold_triggers"
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_TRIGGERS_MIN     (0)
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_TRIGGERS_MAX     (0xffff)
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_TRIGGERS_DEFAULT (0x3)
+
+/*
+ * <ini>
  * roam_bg_scan_client_bitmap - Bitmap used to identify the scan clients
  * @Min: 0
  * @Max: 0x3FF
@@ -2350,6 +2378,56 @@ enum hdd_dot11_mode {
 #define CFG_ROAM_BG_SCAN_CLIENT_BITMAP_MIN      (0)
 #define CFG_ROAM_BG_SCAN_CLIENT_BITMAP_MAX      (0x7FF)
 #define CFG_ROAM_BG_SCAN_CLIENT_BITMAP_DEFAULT  (0x424)
+
+/*
+ * <ini>
+ * roam_bg_scan_bad_rssi_thresh - Data RSSI threshold for background roam
+ * @Min: -96
+ * @Max: 0
+ * @Default: -70
+ *
+ * If the DUT is connected to an AP with weak signal, during latest
+ * rx_data_inactivity_time, if there is no activity or avg of data_rssi is
+ * better than roam_data_rssi_threshold(-70dbM), then suppress roaming
+ * triggered by roam_data_rssi_threshold_triggers: low RSSI or bg scan.
+ *
+ * Related: None
+ *
+ * Supported Feature: Roaming
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_NAME  "roam_data_rssi_threshold"
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_MIN     (-96)
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_MAX     (0)
+#define CFG_ROAM_DATA_RSSI_THRESHOLD_DEFAULT (-70)
+
+/*
+ * <ini>
+ * rx_data_inactivity_time - Duration to check rx data rssi
+ * @Min: 0
+ * @Max: 100000 ms
+ * @Default: 0
+ *
+ * If the DUT is connected to an AP with weak signal, during latest
+ * rx_data_inactivity_time, if there is no activity or avg of data_rssi is
+ * better than roam_data_rssi_threshold(-70dbM), then suppress roaming
+ * triggered by roam_data_rssi_threshold_triggers: low RSSI or bg scan.
+ *
+ * Related: None
+ *
+ * Supported Feature: Roaming
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_RX_DATA_INACTIVITY_TIME_NAME  "rx_data_inactivity_time"
+#define CFG_RX_DATA_INACTIVITY_TIME_MIN     (0)
+#define CFG_RX_DATA_INACTIVITY_TIME_MAX     (100000)
+#define CFG_RX_DATA_INACTIVITY_TIME_DEFAULT (2000)
 
 /*
  * <ini>
@@ -6426,7 +6504,7 @@ enum hdd_link_speed_rpt_type {
  * gSapGetPeerInfo - Enable/Disable remote peer info query support
  * @Min: 0 - Disable remote peer info query support
  * @Max: 1 - Enable remote peer info query support
- * @Default: 0
+ * @Default: 1
  *
  * This ini is used to enable/disable remote peer info query support
  *
@@ -6437,7 +6515,7 @@ enum hdd_link_speed_rpt_type {
 #define CFG_SAP_GET_PEER_INFO                      "gSapGetPeerInfo"
 #define CFG_SAP_GET_PEER_INFO_MIN                   (0)
 #define CFG_SAP_GET_PEER_INFO_MAX                   (1)
-#define CFG_SAP_GET_PEER_INFO_DEFAULT               (0)
+#define CFG_SAP_GET_PEER_INFO_DEFAULT               (1)
 
 /*
  * <ini>
@@ -6933,7 +7011,7 @@ enum hdd_link_speed_rpt_type {
  * <ini>
  * gTDLSExternalControl - Enable external TDLS control.
  * @Min: 0
- * @Max: 1
+ * @Max: 2
  * @Default: 1
  *
  * This ini is used to enable/disable external TDLS control.
@@ -6941,6 +7019,12 @@ enum hdd_link_speed_rpt_type {
  * control allows a user to add a MAC address of potential TDLS peers so
  * that the CLD driver can initiate implicit TDLS setup to only those peers
  * when criteria for TDLS setup (throughput and RSSI threshold) is met.
+ * There are two flavors of external control supported. If control default
+ * is set 1 it means strict external control where only for configured
+ * tdls peer mac address tdls link will be established. If control default
+ * is set 2 it means liberal tdls external control needed. It means
+ * tdls link will be established with configured peer mac address as well
+ * as any other peer which supports tdls.
  *
  * Related: gEnableTDLSSupport, gEnableTDLSImplicitTrigger.
  *
@@ -6952,7 +7036,7 @@ enum hdd_link_speed_rpt_type {
  */
 #define CFG_TDLS_EXTERNAL_CONTROL                   "gTDLSExternalControl"
 #define CFG_TDLS_EXTERNAL_CONTROL_MIN               (0)
-#define CFG_TDLS_EXTERNAL_CONTROL_MAX               (1)
+#define CFG_TDLS_EXTERNAL_CONTROL_MAX               (2)
 #define CFG_TDLS_EXTERNAL_CONTROL_DEFAULT           (1)
 
 /*
@@ -8515,6 +8599,35 @@ enum hdd_link_speed_rpt_type {
 
 /*
  * <ini>
+ * nan_feature_config - Bitmap to enable/disable a particular NAN/NDP feature
+ *
+ * @Min: 0
+ * @Max: 0xFFFF
+ * @Default: 0x1
+ *
+ * This parameter helps to enable/disable a particular feature config by setting
+ * corresponding bit and send to firmware through the VDEV param
+ * WMI_VDEV_PARAM_ENABLE_DISABLE_NAN_CONFIG_FEATURES
+ * Acceptable values for this:
+ * BIT(0): Allow DW configuration from framework in sync role.
+ *	   If this is not set, firmware shall follow the spec/default behavior.
+ * BIT(1) to BIT(31): Reserved
+ *
+ * Related: None
+ *
+ * Supported Feature: NAN
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_NAN_FEATURE_CONFIG                  "nan_feature_config"
+#define CFG_NAN_FEATURE_CONFIG_MIN              (0)
+#define CFG_NAN_FEATURE_CONFIG_MAX              (0xFFFF)
+#define CFG_NAN_FEATURE_CONFIG_DEFAULT          (1)
+
+/*
+ * <ini>
  * gSupportMp0Discovery - To support discovery of NAN cluster with
  * Master Preference (MP) as 0 when a new device is enabling NAN.
  *
@@ -9596,11 +9709,17 @@ enum dot11p_mode {
  * etsi13_srd_chan_in_master_mode - Enable/disable ETSI SRD channels in
  * master mode PCL and ACS functionality
  * @Min: 0
- * @Max: 1
- * @Default: 0
+ * @Max: 0xFF
+ * @Default: 6
  *
- * etsi13_srd_chan_in_master_mode is to enable/disable ETSI SRD channels in
+ * etsi_srd_chan_in_master_mode is to enable/disable ETSI SRD channels in
  * master mode PCL and ACS functionality
+ * Bit map for enabling the SRD mode in various modes are as follows:-
+ * BIT 0:- Enable/Disable SRD channels for SAP.
+ * BIT 1:- Enable/Disable SRD channels for P2P-GO.
+ * BIT 2:- Enable/Disable SRD channels for NAN.
+ * Rest of the bits are currently reserved for future SRD channel support for
+ * other vdevs.
  *
  * Related: None
  *
@@ -9610,10 +9729,34 @@ enum dot11p_mode {
  *
  * </ini>
  */
+
 #define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE    "etsi13_srd_chan_in_master_mode"
-#define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE_DEF (0)
+#define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE_DEF (6)
 #define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE_MIN (0)
-#define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE_MAX (1)
+#define CFG_ETSI13_SRD_CHAN_IN_MASTER_MODE_MAX (0xFF)
+
+/*
+ * <ini>
+ * enable_nan_indoor_channel - Enable Indoor channels for NAN
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to support to indoor channels for NAN interface
+ * Customer can config this item to enable/disable NAN in indoor channel
+ *
+ * Related: None
+ *
+ * Supported Feature: NAN
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_INDOOR_CHANNEL_SUPPORT_FOR_NAN    "enable_nan_indoor_channel"
+#define CFG_INDOOR_CHANNEL_SUPPORT_FOR_NAN_DEF (0)
+#define CFG_INDOOR_CHANNEL_SUPPORT_FOR_NAN_MIN (0)
+#define CFG_INDOOR_CHANNEL_SUPPORT_FOR_NAN_MAX (1)
 
 /*
  * <ini>
@@ -10074,6 +10217,27 @@ enum dot11p_mode {
 
 /*
  * <ini>
+ * enable_dynamic_nss_chain_config - Enable/Disable dynamic nss and chain config
+ * to FW.
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * Related: STA/SAP/P2P/NAN.
+ *
+ * Supported Feature: Dynamic chainmask
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_ENABLE_DYNAMIC_NSS_CHAIN_CFG       "enable_dynamic_nss_chain_config"
+#define CFG_ENABLE_DYNAMIC_NSS_CHAIN_CFG_MIN   0
+#define CFG_ENABLE_DYNAMIC_NSS_CHAIN_CFG_MAX   1
+#define CFG_ENABLE_DYNAMIC_NSS_CHAIN_CFG_DEF   1
+
+/*
+ * <ini>
  * disable_rx_mrc_5g - Config Param to disable 2 chains in 1x1 nss mode
  * @Min: 0
  * @Max: 1
@@ -10237,6 +10401,27 @@ enum dot11p_mode {
 #define CFG_STA_SAP_SCC_ON_LTE_COEX_CHAN_MIN          (0)
 #define CFG_STA_SAP_SCC_ON_LTE_COEX_CHAN_MAX          (1)
 #define CFG_STA_SAP_SCC_ON_LTE_COEX_CHAN_DEFAULT      (1)
+
+/*
+ * <ini>
+ * g_enable_go_force_scc - Enable/Disable force SCC on P2P GO
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini and along with "gWlanMccToSccSwitchMode" is used to enable
+ * force SCC on P2P GO interface.
+ *
+ * Supported Feature: P2P GO
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_P2P_GO_ENABLE_FORCE_SCC              "g_enable_go_force_scc"
+#define CFG_P2P_GO_ENABLE_FORCE_SCC_MIN          (0)
+#define CFG_P2P_GO_ENABLE_FORCE_SCC_MAX          (1)
+#define CFG_P2P_GO_ENABLE_FORCE_SCC_DEFAULT      (0)
 
 /*
  * gPNOChannelPrediction will allow user to enable/disable the
@@ -13693,7 +13878,7 @@ enum hdd_external_acs_policy {
  * sae_enabled - Enable/Disable SAE support in driver
  * @Min: 0
  * @Max: 1
- * @Default: 0
+ * @Default: 1
  *
  * This ini is used to enable/disable SAE support in driver
  * Driver will update config to supplicant based on this config.
@@ -13710,6 +13895,75 @@ enum hdd_external_acs_policy {
 #define CFG_IS_SAE_ENABLED_DEFAULT (0)
 #define CFG_IS_SAE_ENABLED_MIN     (0)
 #define CFG_IS_SAE_ENABLED_MAX     (1)
+
+/*
+ * <ini>
+ * enable_sae_for_sap - Enable/Disable SAE support in driver for SAP
+ * channel&bandwidth in the mission mode
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * This ini is used to enable/disable SAE support in driver for SAP mode
+ * Driver will process/drop the SAE authentication frames based on this config.
+ *
+ * Related: None
+ *
+ * Supported Feature: SAE
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_IS_SAP_SAE_ENABLED_NAME    "enable_sae_for_sap"
+#define CFG_IS_SAP_SAE_ENABLED_DEFAULT (1)
+#define CFG_IS_SAP_SAE_ENABLED_MIN     (0)
+#define CFG_IS_SAP_SAE_ENABLED_MAX     (1)
+
+/*
+ * <ini>
+ * sae_connect_retries - Bit mask to retry Auth and full connection on assoc
+ * timeout to same AP and auth retries during roaming
+ * @Min: 0x0
+ * @Max: 0x53
+ * @Default: 0x52
+ *
+ * This ini is used to set max auth retry in auth phase of roaming and initial
+ * connection and max connection retry in case of assoc timeout. MAX Auth
+ * retries are capped to 3, connection retries are capped to 2 and roam Auth
+ * retry is capped to 1.
+ * Default is 0x52 i.e. 1 roam auth retry, 2 auth retry and 2 full connection
+ * retry.
+ *
+ * Bits       Retry Type
+ * BIT[0:2]   AUTH retries
+ * BIT[3:5]   Connection reties
+ * BIT[6:8]   ROAM AUTH retries
+ *
+ * Some Possible values are as below
+ * 0          - NO auth/roam Auth retry and NO full connection retry after
+ *              assoc timeout
+ * 0x49       - 1 auth/roam auth retry and 1 full connection retry
+ * 0x52       - 1 roam auth retry, 2 auth retry and 2 full connection retry
+ * 0x1 /0x2   - 0 roam auth retry, 1 or 2 auth retry respectively and NO full
+ *              connection retry
+ * 0x8 /0x10  - 0 roam auth retry,NO auth retry and 1 or 2 full connection retry
+ *              respectively.
+ * 0x4A       - 1 roam auth retry,2 auth retry and 1 full connection retry
+ * 0x51       - 1 auth/roam auth retry and 2 full connection retry
+ *
+ * Related: None
+ *
+ * Supported Feature: STA SAE
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_SAE_CONNECION_RETRIES		"sae_connect_retries"
+#define CFG_SAE_CONNECION_RETRIES_MIN		(0x0)
+#define CFG_SAE_CONNECION_RETRIES_MAX		(0x53)
+#define CFG_SAE_CONNECION_RETRIES_DEFAULT	(0x52)
 
 /*
  * Type declarations
@@ -17487,11 +17741,16 @@ enum hdd_external_acs_policy {
  * <ini>
  * disable_4way_hs_offload - Enable/Disable 4 way handshake offload to firmware
  * @Min: 0
- * @Max: 1
- * @Default: 0
+ * @Max: 0x2
+ * @Default: 0x2
  *
- * 0  4-way HS to be handled in firmware
- * 1  4-way HS to be handled in supplicant
+ * 0x0 - 4-way HS to be handled in firmware for the AKMs except for SAE and
+ * OWE roaming the 4way HS is handled in supplicant by default
+ * 0x1 - 4-way HS to be handled in supplicant
+ * 0x2 - 4-way HS to be handled in firmware for the AKMs including the SAE
+ * Roam except for OWE roaming the 4way HS is handled in supplicant
+ *
+ * Based on the requirement the Max value can be increased per AKM.
  *
  * Related: None
  *
@@ -17501,10 +17760,32 @@ enum hdd_external_acs_policy {
  *
  * </ini>
  */
-#define CFG_DISABLE_4WAY_HS_OFFLOAD           "disable_4way_hs_offload"
-#define CFG_DISABLE_4WAY_HS_OFFLOAD_MIN       (0)
-#define CFG_DISABLE_4WAY_HS_OFFLOAD_MAX       (1)
-#define CFG_DISABLE_4WAY_HS_OFFLOAD_DEFAULT   (0)
+#define CFG_DISABLE_4WAY_HS_OFFLOAD         "disable_4way_hs_offload"
+#define CFG_DISABLE_4WAY_HS_OFFLOAD_MIN     (0x0)
+#define CFG_DISABLE_4WAY_HS_OFFLOAD_MAX     (0x2)
+#define CFG_DISABLE_4WAY_HS_OFFLOAD_DEFAULT (0x2)
+
+/*
+ * <ini>
+ * nb_commands_interval - Used to rate limit nb commands from userspace
+ *
+ * @Min: 0
+ * @Max: 10
+ * Default: 3
+ *
+ * This ini is used to specify the duration in which any supp. nb command from
+ * userspace will not be processed completely in driver. For ex, the default
+ * value of 3 seconds signifies that consecutive commands within that
+ * time will not be processed fully.
+ *
+ * Usage: Internal
+ *
+ * </ini>
+ */
+#define CFG_NB_COMMANDS_RATE_LIMIT          "nb_commands_interval"
+#define CFG_NB_COMMANDS_RATE_LIMIT_MIN      (0)
+#define CFG_NB_COMMANDS_RATE_LIMIT_MAX      (10)
+#define CFG_NB_COMMANDS_RATE_LIMIT_DEFAULT  (3)
 
 /*
  * <ini>
@@ -18050,7 +18331,7 @@ struct hdd_config {
 	uint32_t fTDLSRxFrameThreshold;
 	uint32_t fTDLSPuapsdPTIWindow;
 	uint32_t fTDLSPuapsdPTRTimeout;
-	bool fTDLSExternalControl;
+	uint8_t fTDLSExternalControl;
 	uint32_t fEnableTDLSOffChannel;
 	uint32_t fEnableTDLSWmmMode;
 	uint8_t fTDLSPrefOffChanNum;
@@ -18229,6 +18510,7 @@ struct hdd_config {
 	bool nan_separate_iface_support;
 	uint16_t ndp_keep_alive_period;
 	bool support_mp0_discovery;
+	uint32_t nan_feature_config;
 #endif
 	bool enableSelfRecovery;
 #ifdef FEATURE_WLAN_FORCE_SAP_SCC
@@ -18293,7 +18575,7 @@ struct hdd_config {
 	bool fastpath_enable;
 #endif
 	uint8_t dot11p_mode;
-	bool etsi13_srd_chan_in_master_mode;
+	uint8_t etsi13_srd_chan_in_master_mode;
 	uint8_t rx_mode;
 	uint32_t ce_service_max_yield_time;
 	uint8_t ce_service_max_rx_ind_flush;
@@ -18314,6 +18596,7 @@ struct hdd_config {
 	uint8_t dbs_scan_selection[CFG_DBS_SCAN_PARAM_LENGTH];
 	uint32_t sta_sap_scc_on_dfs_chan;
 	uint32_t sta_sap_scc_on_lte_coex_chan;
+	uint32_t go_force_scc;
 	bool     tx_chain_mask_cck;
 	uint8_t  tx_chain_mask_1ss;
 	bool smart_chainmask_enabled;
@@ -18351,6 +18634,9 @@ struct hdd_config {
 	uint32_t roam_dense_min_aps;
 	int8_t roam_bg_scan_bad_rssi_thresh;
 	uint8_t roam_bad_rssi_thresh_offset_2g;
+	uint32_t roam_data_rssi_threshold_triggers;
+	int32_t roam_data_rssi_threshold;
+	uint32_t rx_data_inactivity_time;
 	uint32_t ho_delay_for_rx;
 	uint32_t min_delay_btw_roam_scans;
 	uint32_t roam_trigger_reason_bitmask;
@@ -18598,6 +18884,8 @@ struct hdd_config {
 	uint32_t btm_offload_config;
 #ifdef WLAN_FEATURE_SAE
 	bool is_sae_enabled;
+	bool sap_sae_enabled;
+	uint32_t sae_connect_retries;
 #endif
 	uint32_t btm_solicited_timeout;
 	uint32_t btm_max_attempt_cnt;
@@ -18667,6 +18955,7 @@ struct hdd_config {
 	bool disable_rx_mrc_2g;
 	bool disable_tx_mrc_5g;
 	bool disable_rx_mrc_5g;
+	bool enable_dynamic_nss_chains_cfg;
 	bool mac_provision;
 	uint32_t provisioned_intf_pool;
 	uint32_t derived_intf_pool;
@@ -18712,6 +19001,7 @@ struct hdd_config {
 	bool ShortGI160MhzEnable;
 	uint32_t vendor_roam_score_algorithm;
 	uint32_t dp_proto_event_bitmap;
+	uint8_t nb_commands_interval;
 
 #ifdef SAR_SAFETY_FEATURE
 	uint32_t sar_safety_timeout;
@@ -18728,7 +19018,7 @@ struct hdd_config {
 	uint32_t mws_coex_scc_channel_avoid_delay;
 	uint32_t mws_coex_pcc_channel_avoid_delay;
 
-	bool disable_4way_hs_offload;
+	uint32_t disable_4way_hs_offload;
 #ifdef FEATURE_WLAN_TIME_SYNC_FTM
 	bool time_sync_ftm_enable;
 	bool time_sync_ftm_mode;
@@ -18743,6 +19033,8 @@ struct hdd_config {
 	uint32_t periodic_stats_timer_duration;
 #endif /* WLAN_FEATURE_PERIODIC_STA_STATS */
 	uint8_t dfs_chan_ageout_time;
+
+	bool enable_nan_indoor_channel;
 };
 
 #define VAR_OFFSET(_Struct, _Var) (offsetof(_Struct, _Var))

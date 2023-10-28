@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2018, 2020-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -129,6 +129,78 @@ extern void ol_txrx_get_pn_info(void *ppeer, uint8_t **last_pn_valid,
 
 /* thresh for peer's cached buf queue beyond which the elements are dropped */
 #define OL_TXRX_CACHED_BUFQ_THRESH 128
+
+#ifdef DP_SUPPORT_RECOVERY_NOTIFY
+static
+int ol_peer_recovery_notifier_cb(struct notifier_block *block,
+				 unsigned long state, void *data)
+{
+	struct qdf_notifer_data *notif_data = data;
+	qdf_notif_block *notif_block;
+	struct ol_txrx_peer_t *peer;
+	struct peer_hang_data hang_data = {0};
+	enum peer_debug_id_type dbg_id;
+
+	if (!data || !block)
+		return -EINVAL;
+
+	notif_block = qdf_container_of(block, qdf_notif_block, notif_block);
+
+	peer = notif_block->priv_data;
+	if (!peer)
+		return -EINVAL;
+
+	if (notif_data->offset >= QDF_WLAN_MAX_HOST_OFFSET)
+		return NOTIFY_STOP_MASK;
+
+	QDF_HANG_EVT_SET_HDR(&hang_data.tlv_header,
+			     HANG_EVT_TAG_DP_PEER_INFO,
+			     QDF_HANG_GET_STRUCT_TLVLEN(struct peer_hang_data));
+
+	qdf_mem_copy(&hang_data.peer_mac_addr, &peer->mac_addr.raw,
+		     QDF_MAC_ADDR_SIZE);
+
+	for (dbg_id = 0; dbg_id < PEER_DEBUG_ID_MAX; dbg_id++)
+		if (qdf_atomic_read(&peer->access_list[dbg_id]))
+			hang_data.peer_timeout_bitmask |= (1 << dbg_id);
+
+	qdf_mem_copy(notif_data->hang_data + notif_data->offset,
+		     &hang_data, sizeof(struct peer_hang_data));
+	notif_data->offset += sizeof(struct peer_hang_data);
+
+	return 0;
+}
+
+static qdf_notif_block ol_peer_recovery_notifier = {
+	.notif_block.notifier_call = ol_peer_recovery_notifier_cb,
+};
+
+static
+QDF_STATUS ol_register_peer_recovery_notifier(struct ol_txrx_peer_t *peer)
+{
+	ol_peer_recovery_notifier.priv_data = peer;
+
+	return qdf_hang_event_register_notifier(&ol_peer_recovery_notifier);
+}
+
+static
+QDF_STATUS ol_unregister_peer_recovery_notifier(void)
+{
+	return qdf_hang_event_unregister_notifier(&ol_peer_recovery_notifier);
+}
+#else
+static inline
+QDF_STATUS ol_register_peer_recovery_notifier(struct ol_txrx_peer_t *peer)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static
+QDF_STATUS ol_unregister_peer_recovery_notifier(void)
+{
+	return QDF_STATUS_SUCCESS;
+}
+#endif
 
 #if defined(CONFIG_HL_SUPPORT) && defined(FEATURE_WLAN_TDLS)
 
@@ -2025,9 +2097,18 @@ ol_txrx_pdev_post_attach(struct cdp_pdev *ppdev)
 	pdev->rx_pn[htt_sec_type_tkip].len =
 		pdev->rx_pn[htt_sec_type_tkip_nomic].len =
 			pdev->rx_pn[htt_sec_type_aes_ccmp].len = 48;
+
+	pdev->rx_pn[htt_sec_type_aes_ccmp_256].len =
+		pdev->rx_pn[htt_sec_type_aes_gcmp].len =
+			pdev->rx_pn[htt_sec_type_aes_gcmp_256].len = 48;
+
 	pdev->rx_pn[htt_sec_type_tkip].cmp =
 		pdev->rx_pn[htt_sec_type_tkip_nomic].cmp =
 			pdev->rx_pn[htt_sec_type_aes_ccmp].cmp = ol_rx_pn_cmp48;
+
+	pdev->rx_pn[htt_sec_type_aes_ccmp_256].cmp =
+		pdev->rx_pn[htt_sec_type_aes_gcmp].cmp =
+		    pdev->rx_pn[htt_sec_type_aes_gcmp_256].cmp = ol_rx_pn_cmp48;
 
 	/* WAPI: 128-bit PN */
 	pdev->rx_pn[htt_sec_type_wapi].len = 128;
@@ -2393,6 +2474,7 @@ static void ol_txrx_pdev_detach(struct cdp_pdev *ppdev, int force)
 	ol_txrx_pdev_grp_stat_destroy(pdev);
 
 	ol_txrx_debugfs_exit(pdev);
+	ol_unregister_peer_recovery_notifier();
 
 	qdf_mem_free(pdev);
 }
@@ -3987,63 +4069,6 @@ static QDF_STATUS ol_txrx_clear_peer(struct cdp_pdev *ppdev, uint8_t sta_id)
 	return status;
 }
 
-#ifdef DP_SUPPORT_RECOVERY_NOTIFY
-static
-int ol_peer_recovery_notifier_cb(struct notifier_block *block,
-				 unsigned long state, void *data)
-{
-	struct qdf_notifer_data *notif_data = data;
-	qdf_notif_block *notif_block;
-	struct ol_txrx_peer_t *peer;
-	struct peer_hang_data hang_data;
-	enum peer_debug_id_type dbg_id;
-
-	if (!data || !block)
-		return -EINVAL;
-
-	notif_block = qdf_container_of(block, qdf_notif_block, notif_block);
-
-	peer = notif_block->priv_data;
-	if (!peer)
-		return -EINVAL;
-
-	QDF_HANG_EVT_SET_HDR(&hang_data.tlv_header,
-			     HANG_EVT_TAG_DP_PEER_INFO,
-			     QDF_HANG_GET_STRUCT_TLVLEN(struct peer_hang_data));
-
-	qdf_mem_copy(&hang_data.peer_mac_addr, &peer->mac_addr.raw,
-		     QDF_MAC_ADDR_SIZE);
-
-	for (dbg_id = 0; dbg_id < PEER_DEBUG_ID_MAX; dbg_id++)
-		if (qdf_atomic_read(&peer->access_list[dbg_id]))
-			hang_data.peer_timeout_bitmask |= (1 << dbg_id);
-
-	qdf_mem_copy(notif_data->hang_data + notif_data->offset,
-		     &hang_data, sizeof(struct peer_hang_data));
-	notif_data->offset += sizeof(struct peer_hang_data);
-
-	return 0;
-}
-
-static qdf_notif_block ol_peer_recovery_notifier = {
-	.notif_block.notifier_call = ol_peer_recovery_notifier_cb,
-};
-
-static
-QDF_STATUS ol_register_peer_recovery_notifier(struct ol_txrx_peer_t *peer)
-{
-	ol_peer_recovery_notifier.priv_data = peer;
-
-	return qdf_hang_event_register_notifier(&ol_peer_recovery_notifier);
-}
-#else
-static inline
-QDF_STATUS ol_register_peer_recovery_notifier(struct ol_txrx_peer_t *peer)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
-
 /**
  * peer_unmap_timer_handler() - peer unmap timer function
  * @data: peer object pointer
@@ -4207,6 +4232,34 @@ static void ol_txrx_peer_unmap_sync_cb_set(
 
 	if (!pdev->peer_unmap_sync_cb)
 		pdev->peer_unmap_sync_cb = peer_unmap_sync;
+}
+
+/**
+ * ol_txrx_peer_flush_frags() - Flush fragments for a particular peer
+ * @soc_hdl - datapath soc handle
+ * @vdev_id - virtual device id
+ * @peer_mac - peer mac address
+ *
+ * Return: None
+ */
+static void
+ol_txrx_peer_flush_frags(struct cdp_pdev *ppdev, uint8_t vdev_id,
+			 uint8_t *peer_mac)
+{
+	struct ol_txrx_peer_t *peer;
+	struct ol_txrx_pdev_t *pdev = (struct ol_txrx_pdev_t *)ppdev;
+
+	if (!pdev)
+		return;
+
+	peer =  ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
+						    PEER_DEBUG_ID_OL_INTERNAL);
+	if (!peer)
+		return;
+
+	ol_rx_reorder_peer_cleanup(peer->vdev, peer);
+
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
 }
 
 /**
@@ -6186,8 +6239,10 @@ static void ol_txrx_post_data_stall_event(
 	data_stall_info->recovery_type = recovery_type;
 
 	if (data_stall_info->data_stall_type ==
-				DATA_STALL_LOG_FW_RX_REFILL_FAILED)
+				DATA_STALL_LOG_FW_RX_REFILL_FAILED) {
 		htt_log_rx_ring_info(pdev->htt_pdev);
+		htt_rx_refill_failure(pdev->htt_pdev);
+	}
 
 	sys_build_message_header(SYS_MSG_ID_DATA_STALL_MSG, &msg);
 	/* Save callback and data */
@@ -6704,6 +6759,7 @@ static struct cdp_peer_ops ol_ops_peer = {
 	.update_last_real_peer = ol_txrx_update_last_real_peer,
 #endif /* CONFIG_HL_SUPPORT */
 	.peer_detach_force_delete = ol_txrx_peer_detach_force_delete,
+	.peer_flush_frags = ol_txrx_peer_flush_frags,
 };
 
 static struct cdp_tx_delay_ops ol_ops_delay = {

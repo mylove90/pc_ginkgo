@@ -72,6 +72,33 @@ struct peer_mlme_priv_obj {
 };
 
 /**
+ * struct mlme_roam_invoke_entity_param - roam invoke entity params
+ * @roam_invoke_in_progress: is roaming already in progress.
+ */
+struct mlme_roam_invoke_entity_param {
+	bool roam_invoke_in_progress;
+};
+
+#define WLAN_SAE_AUTH_TIMEOUT 1000
+#define NUM_RETRY_BITS 3
+#define ROAM_AUTH_INDEX 2
+#define ASSOC_INDEX 1
+#define AUTH_INDEX 0
+#define MAX_RETRIES 2
+#define MAX_ROAM_AUTH_RETRIES 1
+#define MAX_AUTH_RETRIES 3
+
+/**
+ * struct sae_auth_retry - SAE auth retry Information
+ * @sae_auth_max_retry: Max number of sae auth retries
+ * @sae_auth: SAE auth frame information
+ */
+struct sae_auth_retry {
+	uint8_t sae_auth_max_retry;
+	struct element_info sae_auth;
+};
+
+/**
  * struct vdev_mlme_obj - VDEV MLME component object
  * @dynamic_cfg: current configuration of nss, chains for vdev.
  * @ini_cfg: Max configuration of nss, chains supported for vdev.
@@ -79,6 +106,8 @@ struct peer_mlme_priv_obj {
  * @follow_ap_edca: if true, it is forced to follow the AP's edca
  * @disconnect_info: Disconnection information
  * @reconn_after_assoc_timeout: reconnect to the same AP if association timeout
+ * @roam_invoke_params: Roam invoke params
+ * @sae_auth_retry: SAE auth retry information
  */
 struct vdev_mlme_priv_obj {
 	struct mlme_nss_chains dynamic_cfg;
@@ -87,8 +116,25 @@ struct vdev_mlme_priv_obj {
 	bool follow_ap_edca;
 	struct wlan_disconnect_info disconnect_info;
 	bool reconn_after_assoc_timeout;
+	struct mlme_roam_invoke_entity_param roam_invoke_params;
+	struct sae_auth_retry sae_retry;
 };
 
+/**
+ * mlme_get_sae_auth_retry() - Get sae_auth_retry pointer
+ * @vdev: vdev pointer
+ *
+ * Return: Pointer to struct sae_auth_retry or NULL
+ */
+struct sae_auth_retry *mlme_get_sae_auth_retry(struct wlan_objmgr_vdev *vdev);
+
+/**
+ * mlme_free_sae_auth_retry() - Free the SAE auth info
+ * @vdev: vdev pointer
+ *
+ * Return: None
+ */
+void mlme_free_sae_auth_retry(struct wlan_objmgr_vdev *vdev);
 
 /**
  * wlan_vdev_mlme_get_priv_obj() - Update the oce flags to FW
@@ -153,6 +199,15 @@ mlme_vdev_object_created_notification(struct wlan_objmgr_vdev *vdev,
 QDF_STATUS
 mlme_vdev_object_destroyed_notification(struct wlan_objmgr_vdev *vdev,
 					void *arg);
+
+/**
+ * mlme_get_roam_invoke_params() - get the roam invoke params
+ * @vdev: vdev pointer
+ *
+ * Return: pointer to the vdev roam invoke config structure
+ */
+struct mlme_roam_invoke_entity_param *
+mlme_get_roam_invoke_params(struct wlan_objmgr_vdev *vdev);
 
 /**
  * wlan_peer_set_unicast_cipher() - set unicast cipher

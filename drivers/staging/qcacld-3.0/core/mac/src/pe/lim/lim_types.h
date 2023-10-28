@@ -240,6 +240,7 @@ typedef struct sLimMlmAssocInd {
 	tSirMacAddr peerMacAddr;
 	uint16_t aid;
 	tAniAuthType authType;
+	enum ani_akm_type akm_type;
 	tAniSSID ssId;
 	tSirRSNie rsnIE;
 	tSirWAPIie wapiIE;
@@ -274,6 +275,7 @@ typedef struct sLimMlmAssocInd {
 	tDot11fIEHTCaps ht_caps;
 	tDot11fIEVHTCaps vht_caps;
 	bool he_caps_present;
+	bool is_sae_authenticated;
 } tLimMlmAssocInd, *tpLimMlmAssocInd;
 
 typedef struct sLimMlmReassocReq {
@@ -471,9 +473,32 @@ QDF_STATUS lim_process_auth_frame_no_session(tpAniSirGlobal mac,
 					     uint8_t *bd, void *body);
 
 
+/**
+ * lim_sae_auth_cleanup_retry() - API to cleanup sae auth frmae stored
+ * and deactivate the timer
+ * @mac_ctx: Pointer to mac context
+ * @vdev_id: vdev id
+ *
+ * Return: none
+ */
+void lim_sae_auth_cleanup_retry(tpAniSirGlobal mac_ctx, uint8_t vdev_id);
+
 void lim_process_assoc_req_frame(tpAniSirGlobal, uint8_t *, uint8_t, tpPESession);
-void lim_send_mlm_assoc_ind(tpAniSirGlobal pMac, tpDphHashNode pStaDs,
-			    tpPESession psessionEntry);
+
+/**
+ * lim_send_mlm_assoc_ind() - Sends assoc indication to SME
+ * @mac_ctx: Global Mac context
+ * @sta_ds: Station DPH hash entry
+ * @session_entry: PE session entry
+ *
+ * This function sends either LIM_MLM_ASSOC_IND
+ * or LIM_MLM_REASSOC_IND to SME.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS lim_send_mlm_assoc_ind(tpAniSirGlobal mac_ctx,
+				  tpDphHashNode sta_ds,
+				  tpPESession session_entry);
 
 void lim_process_assoc_rsp_frame(tpAniSirGlobal, uint8_t *, uint8_t, tpPESession);
 void lim_process_disassoc_frame(tpAniSirGlobal, uint8_t *, tpPESession);
@@ -1132,6 +1157,18 @@ void lim_process_assoc_failure_timeout(tpAniSirGlobal mac_ctx,
 				       uint32_t msg_type);
 
 /**
+ * lim_send_frame() - API to send frame
+ * @mac_ctx Pointer to Global MAC structure
+ * @vdev_id: vdev id
+ * @buf: Pointer to SAE auth retry frame
+ * @buf_len: length of frame
+ *
+ * Return: None
+ */
+void lim_send_frame(tpAniSirGlobal mac_ctx, uint8_t vdev_id, uint8_t *buf,
+		    uint16_t buf_len);
+
+/**
  * lim_send_mgmt_frame_tx() - Sends mgmt frame
  * @mac_ctx Pointer to Global MAC structure
  * @msg: Received message info
@@ -1141,4 +1178,48 @@ void lim_process_assoc_failure_timeout(tpAniSirGlobal mac_ctx,
 void lim_send_mgmt_frame_tx(tpAniSirGlobal mac_ctx,
 		struct scheduler_msg *msg);
 
+/**
+ * lim_process_assoc_cleanup() - frees up resources used in function
+ * lim_process_assoc_req_frame()
+ * @mac_ctx: pointer to Global MAC structure
+ * @session: pointer to pe session entry
+ * @assoc_req: pointer to ASSOC/REASSOC Request frame
+ * @sta_ds: station dph entry
+ * @assoc_req_copied: boolean to indicate if assoc req was copied to tmp above
+ *
+ * Frees up resources used in function lim_process_assoc_req_frame
+ *
+ * Return: void
+ */
+void lim_process_assoc_cleanup(tpAniSirGlobal mac_ctx,
+			       tpPESession session,
+			       tpSirAssocReq assoc_req,
+			       tpDphHashNode sta_ds,
+			       bool assoc_req_copied);
+
+/**
+ * lim_send_assoc_ind_to_sme() - Initialize PE data structures and send assoc
+ *				 indication to SME.
+ * @mac_ctx: Pointer to Global MAC structure
+ * @session: pe session entry
+ * @sub_type: Indicates whether it is Association Request(=0) or Reassociation
+ *            Request(=1) frame
+ * @hdr: A pointer to the MAC header
+ * @assoc_req: pointer to ASSOC/REASSOC Request frame
+ * @akm_type: AKM type
+ * @pmf_connection: flag indicating pmf connection
+ * @assoc_req_copied: boolean to indicate if assoc req was copied to tmp above
+ * @dup_entry: flag indicating if duplicate entry found
+ *
+ * Return: void
+ */
+bool lim_send_assoc_ind_to_sme(tpAniSirGlobal mac_ctx,
+			       tpPESession session,
+			       uint8_t sub_type,
+			       tpSirMacMgmtHdr hdr,
+			       tpSirAssocReq assoc_req,
+			       enum ani_akm_type akm_type,
+			       bool pmf_connection,
+			       bool *assoc_req_copied,
+			       bool dup_entry);
 #endif /* __LIM_TYPES_H */
