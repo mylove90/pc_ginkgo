@@ -143,7 +143,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 		goto err1;
 	}
 
-	table = buffer->sg_table;
 	spin_lock(&heap->stat_lock);
 	heap->num_of_buffers++;
 	heap->num_of_alloc_bytes += len;
@@ -1264,8 +1263,6 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
 	struct dentry *debug_file;
-	struct dentry *heap_root;
-	char debug_name[64];
 	int ret;
 
 	if (!heap->ops->allocate || !heap->ops->free)

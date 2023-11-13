@@ -544,6 +544,21 @@ static ssize_t debounce_us_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(debounce_us);
 
+#define PON_TWM_ENTRY_PBS_BIT           BIT(0)
+
+static struct qpnp_pon_config *
+qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
+{
+	int i;
+
+	for (i = 0; i < pon->num_pon_config; i++) {
+		if (pon_type == pon->pon_cfg[i].pon_type)
+			return  &pon->pon_cfg[i];
+	}
+
+	return NULL;
+}
+
 static ssize_t qpnp_kpdpwr_reset_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {

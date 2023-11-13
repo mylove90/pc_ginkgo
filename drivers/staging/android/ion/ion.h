@@ -172,6 +172,7 @@ struct ion_device {
 	struct rw_semaphore lock;
 	struct plist_head heaps;
 	struct dentry *debug_root;
+	struct dentry *heaps_debug_root;
 	int heap_cnt;
 };
 
@@ -267,8 +268,14 @@ struct ion_heap {
 	spinlock_t free_lock;
 	wait_queue_head_t waitqueue;
 	struct task_struct *task;
-	atomic_long_t total_allocated;
+	u64 num_of_buffers;
+	u64 num_of_alloc_bytes;
+	u64 alloc_bytes_wm;
 
+	/* protect heap statistics */
+	spinlock_t stat_lock;
+
+	atomic_long_t total_allocated;
 	int (*debug_show)(struct ion_heap *heap, struct seq_file *s,
 			  void *unused);
 };

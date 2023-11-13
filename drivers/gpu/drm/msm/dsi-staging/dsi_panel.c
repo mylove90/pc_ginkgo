@@ -348,6 +348,16 @@ int dsi_panel_trigger_esd_attack(struct dsi_panel *panel)
 	return -EINVAL;
 }
 
+#ifdef CONFIG_TOUCHSCREEN_XIAOMI_C3J
+typedef int (*lct_tp_reset_enable_cb_t)(bool en);
+static lct_tp_reset_enable_cb_t lct_tp_reset_enable_cb_p = NULL;
+void set_tp_reset_gpio_callback(lct_tp_reset_enable_cb_t p_callback)
+{
+	lct_tp_reset_enable_cb_p = p_callback;
+}
+EXPORT_SYMBOL(set_tp_reset_gpio_callback);
+#endif
+
 static int dsi_panel_reset(struct dsi_panel *panel)
 {
 	int rc = 0;
@@ -470,6 +480,15 @@ error_disable_vregs:
 exit:
 	return rc;
 }
+
+#ifdef CONFIG_TOUCHSCREEN_XIAOMI_C3J
+static bool lcd_reset_keep_high = false;
+void set_lcd_reset_gpio_keep_high(bool en)
+{
+	lcd_reset_keep_high = en;
+}
+EXPORT_SYMBOL(set_lcd_reset_gpio_keep_high);
+#endif
 
 static int dsi_panel_power_off(struct dsi_panel *panel)
 {

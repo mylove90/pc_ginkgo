@@ -203,6 +203,7 @@ struct dsi_display {
 
 	const char *name;
 	const char *display_type;
+	bool is_prim_display;
 	const char *dsi_type;
 	struct list_head list;
 	bool is_cont_splash_enabled;
