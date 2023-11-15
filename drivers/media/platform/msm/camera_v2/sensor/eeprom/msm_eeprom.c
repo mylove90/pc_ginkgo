@@ -1,5 +1,5 @@
 /* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,13 +434,15 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 
 #if 0
 //tongzhiqiang add for s5kgm1 dualcamera crc data write to eeprom start
-	if ((memptr[0x000C] == 0x002B) && (memptr[0x000D] == 0x003A)) {
+	if((memptr[0x000C] == 0x002B) && (memptr[0x000D] == 0x003A))
+	{
 		fp = filp_open("/data/vendor/camera/rewrite_arcsoft_calibration_data.bin", O_RDONLY, 0777);
-		if (IS_ERR(fp)) {
-			pr_err("Brave open file fail,Not need rewrite!\n");
+		if (IS_ERR(fp))
+		{
+			pr_err("Brave open file fail,Not need rewrite! \n");
 			return rc;
 		}
-		CDBG("open rewrite_arcsoft_calibration_data.bin open file succeed,need rewrite!\n");
+		CDBG("open rewrite_arcsoft_calibration_data.bin open file succeed,need rewrite! \n");
 		pos = 0;
 		buffer = memptr + 0x1361;
 		fs = get_fs();
@@ -450,86 +452,78 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 		filp_close(fp, NULL);
 		set_fs(fs);
 
-		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(&e_ctrl->i2c_client,
-								csp_config_addr,
-								&csp_reg_val,
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+		&e_ctrl->i2c_client, csp_config_addr,&csp_reg_val,
 		MSM_CAMERA_I2C_BYTE_DATA);
 		msleep(5);
-		CDBG("%s:  csp_reg_val %d\n", __func__, csp_reg_val);
-		if (memptr[0x01] == 0x01) {
-			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-									 csp_config_addr, 0x00,
-									 MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("tong sunny", __func__);
-		} else if (memptr[0x01] == 0x07) {
-			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-									 csp_config_addr, 0x20,
-									 MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("tong ofilm", __func__);
-		}
+		CDBG("%s:  csp_reg_val %d\n", __func__,csp_reg_val);
+		if(memptr[0x01] == 0x01)
+			{
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+					&e_ctrl->i2c_client, csp_config_addr,0x00,
+					MSM_CAMERA_I2C_BYTE_DATA);
+					pr_err("tong sunny", __func__);
+			}else if(memptr[0x01] == 0x07)
+				{
+				ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+						&e_ctrl->i2c_client, csp_config_addr,0x20,
+						MSM_CAMERA_I2C_BYTE_DATA);
+					pr_err("tong ofilm", __func__);
+				}
 		msleep(5);
-		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(&e_ctrl->i2c_client,
-								csp_config_addr,
-								&csp_reg_val,
-								MSM_CAMERA_I2C_BYTE_DATA);
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_read(
+			&e_ctrl->i2c_client, csp_config_addr,&csp_reg_val,
+			MSM_CAMERA_I2C_BYTE_DATA);
 		msleep(5);
-		CDBG("chb--3 %s:  csp_reg_val %d\n", __func__, csp_reg_val);
-		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-								 0x1360, 0x01,
-								 MSM_CAMERA_I2C_BYTE_DATA);
+		CDBG("chb--3 %s:  csp_reg_val %d\n", __func__,csp_reg_val);
+
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client, 0x1360,0x01,MSM_CAMERA_I2C_BYTE_DATA);
 		memptr[0x1360] = 0x01;
-		for (i = 0; i < 2048; i++) {
+		for(i = 0;i < 2048; i++){
 			msleep(5);
-			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-									 addr,
-									 *(buffer+i),
-									 MSM_CAMERA_I2C_BYTE_DATA);
-			if (ret < 0) {
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,addr,*(buffer+i),MSM_CAMERA_I2C_BYTE_DATA);
+			if(ret < 0){
 				pr_err("dualcamera crc data rewrite fail!");
 				return rc;
 			}
 			addr += 1;
 		}
 
-		for (j = 0x1361; j <= 0x1B60; j++) {
+		for (j = 0x1361; j <= 0x1B60; j++){
 			checksum1 = checksum1 + memptr[j];
 		}
 		memptr[0x1B61] = checksum1%0xFF+1;
 		msleep(5);
-		CDBG("dualcamera crc data  sum1 = 0x%X, checksum1 = 0x%X\n",
-		     checksum1, checksum1%0xFF+1);
-		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-								 0x1B61,
-								 checksum1%0xFF+1,
-								 MSM_CAMERA_I2C_BYTE_DATA);
-		if (ret < 0)
+		CDBG("dualcamera crc data  sum1 = 0x%X ,checksum1 = 0x%X \n",checksum1,checksum1%0xFF+1);
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client, 0x1B61,checksum1%0xFF+1,MSM_CAMERA_I2C_BYTE_DATA);
+		if(ret < 0){
 			pr_err("dualcamera crc data rewrite  checksum1 fail!");
+		}
 
-		for (j = 0; j <= 0x1F54; j++) {
+		for (j = 0; j <= 0x1F54; j++){
 			checksum2 = checksum2 + e_ctrl->cal_data.mapdata[j];
 		}
 		memptr[0x1F55] = checksum2%0xFF+1;
 		msleep(5);
-		CDBG("dualcamera crc data  sum2 = 0x%X, checksum2 = 0x%X\n",
-		     checksum2, checksum2%0xFF+1);
-		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&(e_ctrl->i2c_client),
-								 0x1F55,
-								 checksum2%0xFF+1,
-								 MSM_CAMERA_I2C_BYTE_DATA);
-		if (ret < 0)
+		CDBG("dualcamera crc data  sum2 = 0x%X ,checksum2 = 0x%X \n",checksum2,checksum2%0xFF+1);
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+				&(e_ctrl->i2c_client), 0x1F55,checksum2%0xFF+1, MSM_CAMERA_I2C_BYTE_DATA);
+		if(ret < 0){
 			pr_err("dualcamera crc data rewrite checksum2 fail!");
-
+		}
 		msleep(5);
-		if (memptr[0x01] == 0x01) {
-			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-									 csp_config_addr, 0x0E,
-									 MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("tong sunny", __func__);
-		} else if (memptr[0x01] == 0x07) {
-			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&e_ctrl->i2c_client,
-									 csp_config_addr, 0x2E,
-									 MSM_CAMERA_I2C_BYTE_DATA);
-			pr_err("tong ofilm", __func__);
+		if(memptr[0x01] == 0x01)
+		{
+		ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+				&e_ctrl->i2c_client, csp_config_addr,0x0E,
+				MSM_CAMERA_I2C_BYTE_DATA);
+				pr_err("tong sunny", __func__);
+		}else if(memptr[0x01] == 0x07)
+		{
+			ret = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+					&e_ctrl->i2c_client, csp_config_addr,0x2E,
+					MSM_CAMERA_I2C_BYTE_DATA);
+				pr_err("tong ofilm", __func__);
 		}
 	}
 //tongzhiqiang add for s5kgm1 dualcamera crc data write to eeprom start
