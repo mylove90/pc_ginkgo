@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2018, 2020-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -656,12 +656,10 @@ int wlan_hdd_send_mode_change_event(void);
  * wlan_hdd_restore_channels() - Restore the channels which were cached
  * and disabled in wlan_hdd_disable_channels api.
  * @hdd_ctx: Pointer to the HDD context
- * @notify_sap_event: Indicates if SAP event needs to be notified
  *
  * Return: 0 on success, Error code on failure
  */
-int wlan_hdd_restore_channels(struct hdd_context *hdd_ctx,
-			      bool notify_sap_event);
+int wlan_hdd_restore_channels(struct hdd_context *hdd_ctx);
 
 /**
  * hdd_store_sar_config() - Store SAR config in HDD context
@@ -791,6 +789,22 @@ static inline void hdd_configure_sar_resume_index(struct hdd_context *hdd_ctx)
 {
 }
 
+#endif
+
+/**
+ * wlan_hdd_set_wlm_mode() - Function to set pm_qos config in wlm mode
+ * @hdd_ctx: HDD context
+ * @latency level: latency value received
+ *
+ * Return: None
+ */
+#if defined(CLD_PM_QOS) && defined(WLAN_FEATURE_LL_MODE)
+void wlan_hdd_set_wlm_mode(struct hdd_context *hdd_ctx, uint16_t latency_level);
+#else
+static inline
+void wlan_hdd_set_wlm_mode(struct hdd_context *hdd_ctx, uint16_t latency_level)
+{
+}
 #endif
 
 #endif

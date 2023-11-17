@@ -119,6 +119,20 @@ QDF_STATUS pe_start(tpAniSirGlobal pMac);
 void pe_stop(tpAniSirGlobal pMac);
 QDF_STATUS peProcessMsg(tpAniSirGlobal pMac, struct scheduler_msg *limMsg);
 
+#ifdef WLAN_FEATURE_11W
+/**
+ * lim_stop_pmfcomeback_timer() - stop pmf comeback timer
+ * @session: Pointer to PE session
+ *
+ * Return: None
+ */
+void lim_stop_pmfcomeback_timer(tpPESession session);
+#else
+static inline void lim_stop_pmfcomeback_timer(tpPESession session)
+{
+}
+#endif
+
 /**
  * pe_register_mgmt_rx_frm_callback() - registers callback for receiving
  *                                      mgmt rx frames
@@ -455,6 +469,14 @@ QDF_STATUS lim_update_ext_cap_ie(tpAniSirGlobal mac_ctx,
  */
 void lim_handle_sap_beacon(struct wlan_objmgr_pdev *pdev,
 					struct scan_cache_entry *scan_entry);
+
+/**
+ * lim_translate_rsn_oui_to_akm_type() - translate RSN OUI to AKM type
+ * @auth_suite: auth suite
+ *
+ * Return: AKM type
+ */
+enum ani_akm_type lim_translate_rsn_oui_to_akm_type(uint8_t auth_suite[4]);
 
 /************************************************************/
 #endif /* __LIM_API_H */

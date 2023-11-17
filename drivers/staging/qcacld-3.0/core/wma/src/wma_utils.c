@@ -823,9 +823,9 @@ wma_fill_tx_stats(struct sir_wifi_ll_ext_stats *ll_stats,
 	struct sir_wifi_tx *tx_stats;
 	struct sir_wifi_ll_ext_peer_stats *peer_stats;
 	uint32_t *tx_mpdu_aggr, *tx_succ_mcs, *tx_fail_mcs, *tx_delay;
-	uint32_t len, dst_len, param_len, tx_mpdu_aggr_array_len,
-		 tx_succ_mcs_array_len, tx_fail_mcs_array_len,
-		 tx_delay_array_len;
+	uint32_t len, dst_len, param_len, num_entries,
+		 tx_mpdu_aggr_array_len, tx_succ_mcs_array_len,
+		 tx_fail_mcs_array_len, tx_delay_array_len;
 
 	result = *buf;
 	dst_len = *buf_length;
@@ -901,6 +901,12 @@ wma_fill_tx_stats(struct sir_wifi_ll_ext_stats *ll_stats,
 	if (!wmi_peer_tx || !wmi_tx || !peer_stats) {
 		WMA_LOGE(FL("Invalid arg, peer_tx %pK, wmi_tx %pK stats %pK"),
 			 wmi_peer_tx, wmi_tx, peer_stats);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	num_entries = fix_param->num_peer_ac_tx_stats * WLAN_MAX_AC;
+	if (num_entries > param_buf->num_tx_stats) {
+		wma_err("tx stats invalid arg, %d", num_entries);
 		return QDF_STATUS_E_FAILURE;
 	}
 
@@ -1834,13 +1840,23 @@ static int wma_unified_link_radio_stats_event_handler(void *handle,
 		next_chan_offset = WMI_TLV_HDR_SIZE;
 		WMA_LOGD("Channel Stats Info");
 		for (count = 0; count < radio_stats->num_channels; count++) {
-			WMA_LOGD("freq %u width %u freq0 %u freq1 %u awake time %u cca busy time %u",
-				 channel_stats->center_freq,
-				 channel_stats->channel_width,
-				 channel_stats->center_freq0,
-				 channel_stats->center_freq1,
-				 channel_stats->radio_awake_time,
-				 channel_stats->cca_busy_time);
+			wma_nofl_debug("freq %u width %u freq0 %u freq1 %u awake time %u cca busy time %u",
+				       channel_stats->center_freq,
+				       channel_stats->channel_width,
+				       channel_stats->center_freq0,
+				       channel_stats->center_freq1,
+				       channel_stats->radio_awake_time,
+				       channel_stats->cca_busy_time);
+			if (wmi_service_enabled(
+			      wma_handle->wmi_handle,
+			      wmi_service_ll_stats_per_chan_rx_tx_time)) {
+				wma_nofl_debug(" tx time %u rx time %u",
+					       channel_stats->tx_time,
+					       channel_stats->rx_time);
+			} else {
+				wma_nofl_debug("LL Stats per channel tx time and rx time are not supported.");
+			}
+
 			channel_stats++;
 
 			qdf_mem_copy(chn_results,
@@ -2919,6 +2935,11 @@ int wma_link_status_event_handler(void *handle, uint8_t *cmd_param_info,
 	event = (wmi_vdev_rate_stats_event_fixed_param *)
 						param_buf->fixed_param;
 	ht_info = (wmi_vdev_rate_ht_info *) param_buf->ht_info;
+
+	if (!ht_info) {
+		wma_err("Invalid ht_info");
+		return -EINVAL;
+	}
 
 	WMA_LOGD("num_vdev_stats: %d", event->num_vdev_stats);
 
@@ -4646,6 +4667,7 @@ static void wma_set_roam_offload_flag(tp_wma_handle wma, uint8_t vdev_id,
 {
 	QDF_STATUS status;
 	uint32_t flag = 0;
+	uint32_t disable_4way_hs_offload;
 	tpAniSirGlobal mac_ctx;
 
 	if (is_set) {
@@ -4665,9 +4687,18 @@ static void wma_set_roam_offload_flag(tp_wma_handle wma, uint8_t vdev_id,
 		 * 4way HS and firmware will still do LFR3.0 till reassoc phase.
 		 */
 		mac_ctx = (tpAniSirGlobal)cds_get_context(QDF_MODULE_ID_PE);
-		if (mac_ctx &&
-		    mac_ctx->roam.configParam.disable_4way_hs_offload)
-			flag |= WMI_VDEV_PARAM_SKIP_ROAM_EAPOL_4WAY_HANDSHAKE;
+		if (mac_ctx) {
+			disable_4way_hs_offload =
+			mac_ctx->roam.configParam.disable_4way_hs_offload;
+			if (!disable_4way_hs_offload)
+				flag |=
+				WMI_VDEV_PARAM_SKIP_SAE_ROAM_4WAY_HANDSHAKE;
+			if (disable_4way_hs_offload &
+			    DISABLE_4WAY_HS_OFFLOAD_DEFAULT)
+				flag |=
+				(WMI_VDEV_PARAM_SKIP_ROAM_EAPOL_4WAY_HANDSHAKE |
+				 WMI_VDEV_PARAM_SKIP_SAE_ROAM_4WAY_HANDSHAKE);
+		}
 	}
 
 	wma_debug("vdev_id:%d, is_set:%d, flag:%d", vdev_id, is_set, flag);
@@ -4712,7 +4743,8 @@ static void wma_update_roam_offload_flag(tp_wma_handle wma, uint8_t vdev_id,
 	}
 
 	for (id = 0; id < wma->max_bssid; id++) {
-		if (wma->interfaces[id].roam_offload_enabled)
+		if (wma_is_vdev_valid(id) &&
+		    wma->interfaces[id].roam_offload_enabled)
 			roam_offload_vdev_id = id;
 	}
 
@@ -5136,9 +5168,22 @@ int wma_oem_event_handler(void *wma_ctx, uint8_t *event_buff, uint32_t len)
 
 	oem_event_data.data_len = event->data_len;
 	oem_event_data.data = param_buf->data;
-
-	pmac->sme.oem_data_event_handler_cb(&oem_event_data);
+	pmac->sme.oem_data_event_handler_cb(&oem_event_data,
+					    pmac->sme.oem_data_vdev_id);
 
 	return QDF_STATUS_SUCCESS;
+}
+
+uint8_t wma_get_vdev_chan_roam_enabled(WMA_HANDLE wma_handle)
+{
+	uint8_t id;
+	tp_wma_handle wma = (tp_wma_handle)wma_handle;
+
+	for (id = 0; id < wma->max_bssid; id++) {
+		if (wma->interfaces[id].roam_offload_enabled)
+			return wma->interfaces[id].channel;
+	}
+
+	return 0;
 }
 #endif

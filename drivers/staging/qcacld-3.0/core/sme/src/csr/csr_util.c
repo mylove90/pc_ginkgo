@@ -3415,6 +3415,33 @@ static void csr_check_sae_auth(tpAniSirGlobal mac_ctx,
 }
 #endif
 
+bool csr_is_pmkid_found_for_peer(tpAniSirGlobal mac,
+				 struct csr_roam_session *session,
+				 tSirMacAddr peer_mac_addr,
+				 uint8_t *pmkid,
+				 uint16_t pmkid_count)
+{
+	uint32_t i, index;
+	uint8_t *session_pmkid;
+	tPmkidCacheInfo pmkid_cache;
+
+	qdf_mem_zero(&pmkid_cache, sizeof(pmkid_cache));
+	qdf_mem_copy(pmkid_cache.BSSID.bytes, peer_mac_addr,
+		     QDF_MAC_ADDR_SIZE);
+
+	if (!csr_lookup_pmkid_using_bssid(mac, session, &pmkid_cache, &index))
+		return false;
+	session_pmkid = &session->PmkidCacheInfo[index].PMKID[0];
+	for (i = 0; i < pmkid_count; i++) {
+		if (!qdf_mem_cmp(pmkid + (i * CSR_RSN_PMKID_SIZE),
+				 session_pmkid, CSR_RSN_PMKID_SIZE))
+			return true;
+	}
+
+	sme_debug("PMKID in PmkidCacheInfo doesn't match with PMKIDs of peer");
+	return false;
+}
+
 /**
  * csr_get_rsn_information() - to get RSN information
  * @mac_ctx: pointer to global MAC context
@@ -4097,6 +4124,7 @@ uint8_t csr_construct_rsn_ie(tpAniSirGlobal pMac, uint32_t sessionId,
 						   pProfile->pRSNReqIE + 2,
 				  pProfile->nRSNReqIELength -2, &rsn_ie, false);
 			if (!DOT11F_FAILED(ret)) {
+				session->rsn_caps = *(struct rsn_caps *)rsn_ie.RSN_Cap;
 				pIesLocal->RSN.RSN_Cap[0] =
 						pIesLocal->RSN.RSN_Cap[0] &
 						rsn_ie.RSN_Cap[0];
@@ -4191,7 +4219,6 @@ uint8_t csr_construct_rsn_ie(tpAniSirGlobal pMac, uint32_t sessionId,
 		} else {
 			pPMK->cPMKIDs = 0;
 		}
-		session->rsn_caps = RSNCapabilities;
 
 		qdf_mem_zero(&pmkid_cache, sizeof(pmkid_cache));
 

@@ -43,6 +43,7 @@
 #include "cds_utils.h"
 #include "lim_send_messages.h"
 #include "lim_process_fils.h"
+#include "wlan_mlme_main.h"
 
 /**
  * is_auth_valid
@@ -277,6 +278,62 @@ static void lim_process_auth_open_system_algo(tpAniSirGlobal mac_ctx,
 }
 
 #ifdef WLAN_FEATURE_SAE
+
+/**
+ * lim_external_auth_add_pre_auth_node()- Add preauth node for the peer
+ *					  performing external authentication
+ * @mac_ctx: MAC context
+ * @mac_hdr: Mac header of the packet
+ * @mlm_state: MLM state to be marked to track SAE authentication
+ *
+ * Return: None
+ */
+static void lim_external_auth_add_pre_auth_node(tpAniSirGlobal mac_ctx,
+						tpSirMacMgmtHdr mac_hdr,
+						tLimMlmStates mlm_state)
+{
+	struct tLimPreAuthNode *auth_node;
+	tpLimPreAuthTable preauth_table = &mac_ctx->lim.gLimPreAuthTimerTable;
+
+	pe_debug("=======> eSIR_AUTH_TYPE_SAE");
+	/* Create entry for this STA in pre-auth list */
+	auth_node = lim_acquire_free_pre_auth_node(mac_ctx, preauth_table);
+	if (!auth_node) {
+		pe_debug("Max pre-auth nodes reached " QDF_MAC_ADDR_STR,
+			 QDF_MAC_ADDR_ARRAY(mac_hdr->sa));
+		return;
+	}
+	pe_debug("Creating preauth node for SAE peer " QDF_MAC_ADDR_STR,
+		 QDF_MAC_ADDR_ARRAY(mac_hdr->sa));
+	qdf_mem_copy((uint8_t *)auth_node->peerMacAddr,
+		     mac_hdr->sa, sizeof(tSirMacAddr));
+	auth_node->mlmState = mlm_state;
+	auth_node->authType = eSIR_AUTH_TYPE_SAE;
+	auth_node->timestamp = qdf_mc_timer_get_system_ticks();
+	auth_node->seq_num = ((mac_hdr->seqControl.seqNumHi << 4) |
+			      (mac_hdr->seqControl.seqNumLo));
+	auth_node->assoc_req.present = false;
+	lim_add_pre_auth_node(mac_ctx, auth_node);
+}
+
+void lim_sae_auth_cleanup_retry(tpAniSirGlobal mac_ctx, uint8_t vdev_id)
+{
+	struct wlan_objmgr_vdev *vdev;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc,
+						    vdev_id,
+						    WLAN_LEGACY_MAC_ID);
+	if (!vdev) {
+		pe_err("vdev is NULL for vdev id %d", vdev_id);
+		return;
+	}
+
+	pe_debug("sae auth cleanup for vdev_id %d", vdev_id);
+	lim_deactivate_and_change_timer(mac_ctx, eLIM_AUTH_RETRY_TIMER);
+	mlme_free_sae_auth_retry(vdev);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
+}
+
 /**
  * lim_process_sae_auth_frame()-Process SAE authentication frame
  * @mac_ctx: MAC context
@@ -291,6 +348,9 @@ static void lim_process_sae_auth_frame(tpAniSirGlobal mac_ctx,
 	tpSirMacMgmtHdr mac_hdr;
 	uint32_t frame_len;
 	uint8_t *body_ptr;
+	struct sae_auth_retry *sae_retry;
+	struct wlan_objmgr_vdev *vdev;
+	enum rxmgmt_flags rx_flags = RXMGMT_FLAG_NONE;
 
 	mac_hdr = WMA_GET_RX_MAC_HEADER(rx_pkt_info);
 	body_ptr = WMA_GET_RX_MPDU_DATA(rx_pkt_info);
@@ -299,15 +359,53 @@ static void lim_process_sae_auth_frame(tpAniSirGlobal mac_ctx,
 	pe_nofl_info("Received SAE Auth frame type %d subtype %d",
 		     mac_hdr->fc.type, mac_hdr->fc.subType);
 
-	if (pe_session->limMlmState != eLIM_MLM_WT_SAE_AUTH_STATE)
-		pe_err("received SAE auth response in unexpected state %x",
-				pe_session->limMlmState);
+	if (LIM_IS_STA_ROLE(pe_session) &&
+	    pe_session->limMlmState != eLIM_MLM_WT_SAE_AUTH_STATE)
+		pe_err("SAE auth response for STA in unexpected state %x",
+		       pe_session->limMlmState);
+
+	if (LIM_IS_AP_ROLE(pe_session)) {
+		struct tLimPreAuthNode *sta_pre_auth_ctx;
+
+		rx_flags = RXMGMT_FLAG_EXTERNAL_AUTH;
+		/* Add preauth node when the first SAE authentication frame
+		 * is received and mark state as authenticating.
+		 * It's not good to track SAE authentication frames with
+		 * authTransactionSeqNumber as it's subjected to
+		 * SAE protocol optimizations.
+		 */
+		/* Extract pre-auth context for the STA, if any. */
+		sta_pre_auth_ctx = lim_search_pre_auth_list(mac_ctx,
+							    mac_hdr->sa);
+		if (!sta_pre_auth_ctx ||
+		    (sta_pre_auth_ctx->mlmState != eLIM_MLM_WT_SAE_AUTH_STATE &&
+		     sta_pre_auth_ctx->mlmState !=
+		     eLIM_MLM_AUTHENTICATED_STATE)) {
+			lim_external_auth_add_pre_auth_node(mac_ctx, mac_hdr,
+						eLIM_MLM_WT_SAE_AUTH_STATE);
+		}
+	}
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc,
+			pe_session->smeSessionId, WLAN_LEGACY_MAC_ID);
+	if (!vdev) {
+		pe_err("vdev is NULL for vdev id %d", pe_session->smeSessionId);
+		return;
+	}
+	sae_retry = mlme_get_sae_auth_retry(vdev);
+	if (LIM_IS_STA_ROLE(pe_session) && sae_retry &&
+	    sae_retry->sae_auth.ptr)
+		lim_sae_auth_cleanup_retry(mac_ctx,
+					   pe_session->smeSessionId);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
 
 	lim_send_sme_mgmt_frame_ind(mac_ctx, mac_hdr->fc.subType,
-			(uint8_t *) mac_hdr,
-			frame_len + sizeof(tSirMacMgmtHdr), 0,
-			WMA_GET_RX_CH(rx_pkt_info), pe_session,
-			WMA_GET_RX_RSSI_NORMALIZED(rx_pkt_info));
+				    (uint8_t *)mac_hdr,
+				    frame_len + sizeof(tSirMacMgmtHdr),
+				    pe_session->smeSessionId,
+				    WMA_GET_RX_CH(rx_pkt_info), pe_session,
+				    WMA_GET_RX_RSSI_NORMALIZED(rx_pkt_info),
+				    rx_flags);
 }
 #else
 static inline void  lim_process_sae_auth_frame(tpAniSirGlobal mac_ctx,
@@ -1125,6 +1223,12 @@ lim_process_auth_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_pkt_info,
 	tSirMacAuthFrameBody *rx_auth_frm_body, *rx_auth_frame, *auth_frame;
 	tpSirMacMgmtHdr mac_hdr;
 	struct tLimPreAuthNode *auth_node;
+	int sap_sae_enabled;
+
+	if (wlan_cfg_get_int(mac_ctx, WNI_CFG_SAP_SAE_ENABLED,
+			     &sap_sae_enabled) != QDF_STATUS_SUCCESS) {
+		sap_sae_enabled = 0;
+	}
 
 	/* Get pointer to Authentication frame header and body */
 	mac_hdr = WMA_GET_RX_MAC_HEADER(rx_pkt_info);
@@ -1150,14 +1254,17 @@ lim_process_auth_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_pkt_info,
 		(mac_hdr->seqControl.seqNumLo);
 
 	if (pe_session->prev_auth_seq_num == curr_seq_num &&
+	    !qdf_mem_cmp(pe_session->prev_auth_mac_addr, &mac_hdr->sa,
+			 ETH_ALEN) &&
 	    mac_hdr->fc.retry) {
 		pe_debug("auth frame, seq num: %d is already processed, drop it",
 			 curr_seq_num);
 		return;
 	}
 
-	/* save seq number in pe_session */
+	/* save seq number and mac_addr in pe_session */
 	pe_session->prev_auth_seq_num = curr_seq_num;
+	qdf_mem_copy(pe_session->prev_auth_mac_addr, mac_hdr->sa, ETH_ALEN);
 
 	body_ptr = WMA_GET_RX_MPDU_DATA(rx_pkt_info);
 
@@ -1407,10 +1514,11 @@ lim_process_auth_frame(tpAniSirGlobal mac_ctx, uint8_t *rx_pkt_info,
 			pe_err("failed to convert Auth Frame to structure or Auth is not valid");
 			goto free;
 		}
-	} else if ((auth_alg ==
-		    eSIR_AUTH_TYPE_SAE) && (LIM_IS_STA_ROLE(pe_session))) {
-		lim_process_sae_auth_frame(mac_ctx,
-					rx_pkt_info, pe_session);
+	} else if (auth_alg == eSIR_AUTH_TYPE_SAE) {
+		if (LIM_IS_STA_ROLE(pe_session) ||
+		    (LIM_IS_AP_ROLE(pe_session) && sap_sae_enabled))
+			lim_process_sae_auth_frame(mac_ctx, rx_pkt_info,
+						   pe_session);
 		goto free;
 	} else if ((sir_convert_auth_frame2_struct(mac_ctx, body_ptr,
 				frame_len, rx_auth_frame) != QDF_STATUS_SUCCESS)
@@ -1500,7 +1608,8 @@ bool lim_process_sae_preauth_frame(tpAniSirGlobal mac, uint8_t *rx_pkt)
 {
 	tpSirMacMgmtHdr dot11_hdr;
 	uint16_t auth_alg, frm_len;
-	uint8_t *frm_body;
+	uint8_t *frm_body, pdev_id;
+	struct wlan_objmgr_vdev *vdev;
 
 	dot11_hdr = WMA_GET_RX_MAC_HEADER(rx_pkt);
 	frm_body = WMA_GET_RX_MPDU_DATA(rx_pkt);
@@ -1520,11 +1629,21 @@ bool lim_process_sae_preauth_frame(tpAniSirGlobal mac, uint8_t *rx_pkt)
 		  (dot11_hdr->seqControl.seqNumLo << 4) |
 		  (dot11_hdr->seqControl.fragNum)), *(uint16_t *)(frm_body + 2));
 
+	pdev_id = wlan_objmgr_pdev_get_pdev_id(mac->pdev);
+	vdev = wlan_objmgr_get_vdev_by_macaddr_from_psoc(
+			mac->psoc, pdev_id, dot11_hdr->da, WLAN_LEGACY_MAC_ID);
+	if (vdev) {
+		lim_sae_auth_cleanup_retry(mac, vdev->vdev_objmgr.vdev_id);
+		wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
+	}
+
 	lim_send_sme_mgmt_frame_ind(mac, dot11_hdr->fc.subType,
 				    (uint8_t *)dot11_hdr,
-				    frm_len + sizeof(tSirMacMgmtHdr), 0,
+				    frm_len + sizeof(tSirMacMgmtHdr),
+				    SME_SESSION_ID_ANY,
 				    WMA_GET_RX_CH(rx_pkt), NULL,
-				    WMA_GET_RX_RSSI_NORMALIZED(rx_pkt));
+				    WMA_GET_RX_RSSI_NORMALIZED(rx_pkt),
+				    RXMGMT_FLAG_NONE);
 	return true;
 }
 
