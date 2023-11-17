@@ -3690,9 +3690,6 @@ static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 	case SNK_RP_STD_DAM_BIT:
 	case SNK_RP_1P5_DAM_BIT:
 	case SNK_RP_3P0_DAM_BIT:
-	case SNK_DAM_500MA_BIT:
-	case SNK_DAM_1500MA_BIT:
-	case SNK_DAM_3000MA_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
 	case SNK_RP_3P0_BIT:
 		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;

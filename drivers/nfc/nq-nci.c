@@ -1041,10 +1041,7 @@ static int nfcc_hw_check(struct i2c_client *client, struct nqx_dev *nqx_dev)
 	ret = i2c_master_recv(client, nci_reset_rsp, NCI_HEADER_LEN);
 	if (ret != NCI_HEADER_LEN) {
 		dev_err(&client->dev,
-		"%s: - i2c_master_recv Error\n", __func__);
-		gpio_retry_count = gpio_retry_count + 1;
-		if (gpio_retry_count < MAX_RETRY_COUNT)
-			goto reset_enable_gpio;
+		"%s: - i2c_master_recv get RESET rsp header Error\n", __func__);
 		goto err_nfcc_hw_check;
 	}
 
@@ -1122,7 +1119,6 @@ done:
 
 	return ret;
 }
-#endif
 
 /*
  * Routine to enable clock.

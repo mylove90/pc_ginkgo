@@ -1162,28 +1162,6 @@ static void *wakeup_sources_stats_seq_start(struct seq_file *m, loff_t *pos)
 	return NULL;
 }
 
-static void *wakeup_sources_stats_seq_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	struct wakeup_source *ws = v;
-	struct wakeup_source *next_ws = NULL;
-
-	++(*pos);
-
-	list_for_each_entry_continue_rcu(ws, &wakeup_sources, entry) {
-		next_ws = ws;
-		break;
-	}
-
-	return next_ws;
-}
-
-static void wakeup_sources_stats_seq_stop(struct seq_file *m, void *v)
-{
-	int *srcuidx = m->private;
-
-	srcu_read_unlock(&wakeup_srcu, *srcuidx);
-}
-
 /**
  * wakeup_sources_stats_show - Print wakeup sources statistics information.
  * @m: seq_file to print the statistics into.
@@ -1195,7 +1173,7 @@ static int wakeup_sources_stats_seq_show(struct seq_file *m, void *v)
 
 	print_wakeup_source_stats(m, ws);
 
-	return NULL;
+	return 0;
 }
 
 static void *wakeup_sources_stats_seq_next(struct seq_file *m,
@@ -1219,20 +1197,6 @@ static void wakeup_sources_stats_seq_stop(struct seq_file *m, void *v)
 	int *srcuidx = m->private;
 
 	srcu_read_unlock(&wakeup_srcu, *srcuidx);
-}
-
-/**
- * wakeup_sources_stats_seq_show - Print wakeup sources statistics information.
- * @m: seq_file to print the statistics into.
- * @v: wakeup_source of each iteration
- */
-static int wakeup_sources_stats_seq_show(struct seq_file *m, void *v)
-{
-	struct wakeup_source *ws = v;
-
-	print_wakeup_source_stats(m, ws);
-
-	return 0;
 }
 
 static const struct seq_operations wakeup_sources_stats_seq_ops = {
