@@ -1893,18 +1893,7 @@ struct DWC_ETH_QOS_prv_data {
 	struct class* avb_class_b_class;
 	struct delayed_work ipv6_addr_assign_wq;
 	bool print_kpi;
-	unsigned long default_ptp_clock;
 	bool wol_enabled;
-
-	int is_hw_restore_needed;
-	struct hw_store_data hw_data;
-
-	/*avb algo backup*/
-	struct DWC_ETH_QOS_avb_algorithm l_avb_struct_class_a;
-	bool is_class_a_avb_algo_stored;
-	struct DWC_ETH_QOS_avb_algorithm l_avb_struct_class_b;
-	bool is_class_b_avb_algo_stored;
-	int avb_algorithm_speed_backup;
 };
 
 struct ip_params {

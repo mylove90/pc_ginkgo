@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019,2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -6818,8 +6818,16 @@ static int DWC_ETH_QOS_program_dcb_algorithm(
 
 	if (copy_from_user(&l_dcb_struct, u_dcb_struct,
 			   sizeof(struct DWC_ETH_QOS_dcb_algorithm))) {
-		dev_alert(&pdata->pdev->dev, "Failed to fetch DCB Struct info from user\n");
-		return -EFAULT;
+		dev_alert(&pdata->pdev->dev,
+			  "Failed to fetch DCB Struct info from user\n");
+		return;
+	}
+
+	if (l_dcb_struct.qinx >= DWC_ETH_QOS_TX_QUEUE_CNT) {
+		dev_alert(&pdata->pdev->dev,
+			  "Invaild queue number[%u] in DCB Struct from user\n",
+			  l_dcb_struct.qinx);
+		return;
 	}
 
 	hw_if->set_tx_queue_operating_mode(l_dcb_struct.qinx,
@@ -6894,7 +6902,7 @@ static int DWC_ETH_QOS_program_avb_algorithm(
 	if (copy_from_user(&l_avb_struct, u_avb_struct,
 			   sizeof(struct DWC_ETH_QOS_avb_algorithm))) {
 		dev_alert(&pdata->pdev->dev, "Failed to fetch AVB Struct info from user\n");
-		return -EFAULT;
+		return;
 	}
 
 
@@ -6902,14 +6910,13 @@ static int DWC_ETH_QOS_program_avb_algorithm(
 	  Configure right channel accordingly*/
 	if (l_avb_struct.qinx == 1) {
 		l_avb_struct.qinx = CLASS_A_TRAFFIC_TX_CHANNEL;
-		pdata->l_avb_struct_class_a = l_avb_struct;
-		pdata->is_class_a_avb_algo_stored = 1;
-		EMACINFO("DWC_ETH_QOS_program_avb_algorithm class a stored \n");
 	} else if (l_avb_struct.qinx == 2) {
 		l_avb_struct.qinx = CLASS_B_TRAFFIC_TX_CHANNEL;
-		pdata->l_avb_struct_class_b = l_avb_struct;
-		pdata->is_class_b_avb_algo_stored = 1;
-		EMACINFO("DWC_ETH_QOS_program_avb_algorithm class b stored \n");
+	} else {
+		dev_alert(&pdata->pdev->dev,
+			  "Invalid queue number[%u] in AVB struct from user\n",
+			  l_avb_struct.qinx);
+		return;
 	}
 
 	DWC_ETH_QOS_program_avb_algorithm_hw_register(pdata, l_avb_struct);
