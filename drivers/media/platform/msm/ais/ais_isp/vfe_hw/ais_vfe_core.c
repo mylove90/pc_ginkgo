@@ -20,6 +20,7 @@
 #include "ais_vfe_soc.h"
 #include "ais_vfe_core.h"
 #include "cam_debug_util.h"
+#include "ais_isp_trace.h"
 
 /*VFE TOP DEFINITIONS*/
 #define AIS_VFE_HW_RESET_HW_AND_REG_VAL       0x00003F9F
@@ -437,6 +438,8 @@ int ais_vfe_reserve(void *hw_priv, void *reserve_args, uint32_t arg_size)
 		goto EXIT;
 	}
 
+	rdi_path->secure_mode = rdi_cfg->out_cfg.secure_mode;
+
 	cam_io_w(0xf, core_info->mem_base + client_regs->burst_limit);
 	/*disable pack as it is done in CSID*/
 	cam_io_w(0x0, core_info->mem_base + client_regs->packer_cfg);
@@ -683,6 +686,7 @@ static void ais_vfe_q_bufs_to_hw(struct ais_vfe_hw_core_info *core_info,
 	struct ais_vfe_bus_ver2_reg_offset_bus_client  *client_regs = NULL;
 	uint32_t fifo_status = 0;
 	bool is_full = false;
+	struct ais_ife_rdi_get_timestamp_args get_ts;
 
 	rdi_path = &core_info->rdi_out[path];
 	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
@@ -701,10 +705,19 @@ static void ais_vfe_q_bufs_to_hw(struct ais_vfe_hw_core_info *core_info,
 				struct ais_vfe_buffer_t, list);
 		list_del_init(&vfe_buf->list);
 
-		CAM_DBG(CAM_ISP, "IFE%d|RDI%d: Q %d(0x%x) FIFO:%d",
+		get_ts.path = path;
+		get_ts.ts = &vfe_buf->ts_hw;
+		core_info->csid_hw->hw_ops.process_cmd(
+			core_info->csid_hw->hw_priv,
+			AIS_IFE_CSID_CMD_GET_TIME_STAMP,
+			&get_ts,
+			sizeof(get_ts));
+
+
+		CAM_DBG(CAM_ISP, "IFE%d|RDI%d: Q %d(0x%x) FIFO:%d ts %llu",
 			core_info->vfe_idx, path,
 			vfe_buf->bufIdx, vfe_buf->iova_addr,
-			rdi_path->num_buffer_hw_q);
+			rdi_path->num_buffer_hw_q, vfe_buf->ts_hw.cur_sof_ts);
 
 		cam_io_w_mb(vfe_buf->iova_addr,
 			core_info->mem_base + client_regs->image_addr);
@@ -712,9 +725,13 @@ static void ais_vfe_q_bufs_to_hw(struct ais_vfe_hw_core_info *core_info,
 		list_add_tail(&vfe_buf->list, &rdi_path->buffer_hw_q);
 		++rdi_path->num_buffer_hw_q;
 
+
 		fifo_status = cam_io_r_mb(core_info->mem_base +
 			bus_hw_info->common_reg.addr_fifo_status);
 		is_full =  fifo_status & (1 << path);
+
+		trace_ais_isp_vfe_enq_buf_hw(core_info->vfe_idx, path,
+			vfe_buf->bufIdx, rdi_path->num_buffer_hw_q, is_full);
 	}
 
 	if (rdi_path->num_buffer_hw_q > MAX_NUM_BUF_SW_FIFOQ_ERR)
@@ -762,8 +779,11 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 	vfe_buf->bufIdx = enq_buf->buffer.idx;
 	vfe_buf->mem_handle = enq_buf->buffer.mem_handle;
 
-	mmu_hdl = cam_mem_is_secure_buf(vfe_buf->mem_handle) ?
-			core_info->iommu_hdl_secure : core_info->iommu_hdl;
+	mmu_hdl = core_info->iommu_hdl;
+
+	if (cam_mem_is_secure_buf(vfe_buf->mem_handle) || rdi_path->secure_mode)
+		mmu_hdl = core_info->iommu_hdl_secure;
+
 	rc = cam_mem_get_io_buf(vfe_buf->mem_handle,
 		mmu_hdl, &vfe_buf->iova_addr, &src_buf_size);
 	if (rc < 0) {
@@ -791,6 +811,10 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 		vfe_buf->iova_addr += enq_buf->buffer.offset;
 
 		spin_lock(&rdi_path->buffer_lock);
+
+		trace_ais_isp_vfe_enq_req(core_info->vfe_idx, enq_buf->path,
+				enq_buf->buffer.idx);
+
 		list_add_tail(&vfe_buf->list, &rdi_path->buffer_q);
 
 		if (rdi_path->state < AIS_ISP_RESOURCE_STATE_STREAMING)
@@ -884,16 +908,19 @@ static int ais_vfe_q_sof(struct ais_vfe_hw_core_info *core_info,
 		list_add_tail(&p_sof_info->list, &p_rdi->sof_info_q);
 		p_rdi->num_sof_info_q++;
 
+		trace_ais_isp_vfe_q_sof(core_info->vfe_idx, path,
+			p_sof->frame_cnt, p_sof->cur_sof_hw_ts);
 
 		CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: sof %llu",
-			core_info->vfe_idx, path, p_rdi->frame_cnt,
+			core_info->vfe_idx, path, p_sof->frame_cnt,
 			p_sof_info->cur_sof_hw_ts);
 	} else {
 		rc = -1;
 
-		CAM_ERR(CAM_ISP, "I%d|R%d|F%llu: free timestamp empty (%d)",
-			core_info->vfe_idx, path, p_rdi->frame_cnt,
-			p_rdi->num_buffer_hw_q);
+		CAM_ERR(CAM_ISP,
+			"I%d|R%d|F%llu: free timestamp empty (%d) sof %llu",
+			core_info->vfe_idx, path, p_sof->frame_cnt,
+			p_rdi->num_buffer_hw_q, p_sof->cur_sof_hw_ts);
 	}
 
 	return rc;
@@ -933,8 +960,19 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 					prev_sof_hw_ts,
 					p_rdi->last_sof_info.cur_sof_hw_ts,
 					ts_delta);
+
+				CAM_DBG(CAM_ISP,
+					"I%d R%d miss_sof %u prev %llu last %llu cur %llu",
+					core_info->vfe_idx, path,
+					miss_sof, prev_sof_hw_ts,
+					p_rdi->last_sof_info.cur_sof_hw_ts,
+					cur_sof_hw_ts);
 			}
 		}
+
+		trace_ais_isp_vfe_sof(core_info->vfe_idx, path,
+				&work_data->ts_hw[path],
+				p_rdi->num_buffer_hw_q, miss_sof);
 
 		if (p_rdi->frame_cnt == 1 && prev_sof_hw_ts != 0) {
 			//enq missed first frame
@@ -971,12 +1009,16 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 
 		//enq curr
 		sof.sof_ts = work_data->ts;
-		sof.cur_sof_hw_ts = prev_sof_hw_ts;
+		sof.cur_sof_hw_ts = cur_sof_hw_ts;
 		sof.frame_cnt = p_rdi->frame_cnt;
 
 		ais_vfe_q_sof(core_info, path, &sof);
 
 	} else {
+		trace_ais_isp_vfe_sof(core_info->vfe_idx, path,
+					&work_data->ts_hw[path],
+					p_rdi->num_buffer_hw_q, 0);
+
 		CAM_DBG(CAM_ISP, "I%d R%d Flush SOF (%d) HW Q empty",
 				core_info->vfe_idx, path,
 				p_rdi->num_sof_info_q);
@@ -995,6 +1037,8 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 			p_rdi->num_sof_info_q = 0;
 		}
 
+		trace_ais_isp_vfe_error(core_info->vfe_idx,
+						path, 1, 0);
 
 		//send warning
 		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
@@ -1030,7 +1074,7 @@ static int ais_vfe_handle_sof(
 	CAM_DBG(CAM_ISP, "IFE%d SOF RDIs 0x%x", core_info->vfe_idx,
 			work_data->path);
 
-	for (path = 0; path <= AIS_IFE_PATH_MAX; path++) {
+	for (path = 0; path < AIS_IFE_PATH_MAX; path++) {
 
 		if (!(work_data->path & (1 << path)))
 			continue;
@@ -1039,7 +1083,11 @@ static int ais_vfe_handle_sof(
 		if (p_rdi->state != AIS_ISP_RESOURCE_STATE_STREAMING)
 			continue;
 
+		AIS_ATRACE_BEGIN("SOF_%u_%u_%lu",
+			core_info->vfe_idx, path, p_rdi->frame_cnt);
 		ais_vfe_handle_sof_rdi(core_info, work_data, path);
+		AIS_ATRACE_END("SOF_%u_%u_%lu",
+			core_info->vfe_idx, path, p_rdi->frame_cnt);
 
 		//enq buffers
 		spin_lock_bh(&p_rdi->buffer_lock);
@@ -1065,34 +1113,43 @@ static int ais_vfe_handle_error(
 	CAM_ERR(CAM_ISP, "IFE%d ERROR on RDIs 0x%x", core_info->vfe_idx,
 					work_data->path);
 
+	trace_ais_isp_vfe_error(core_info->vfe_idx,
+			work_data->path, 0, 0);
+
 	top_hw_info = core_info->vfe_hw_info->top_hw_info;
 	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
 	bus_hw_irq_regs = bus_hw_info->common_reg.irq_reg_info.irq_reg_set;
 
-	for (path = 0; path <= AIS_IFE_PATH_MAX; path++) {
+	for (path = 0; path < AIS_IFE_PATH_MAX; path++) {
 
 		if (!(work_data->path & (1 << path)))
 			continue;
 
 		p_rdi = &core_info->rdi_out[path];
+
 		if (p_rdi->state != AIS_ISP_RESOURCE_STATE_STREAMING)
 			continue;
+
+		CAM_ERR(CAM_ISP, "IFE%d Turn off RDI %d",
+			core_info->vfe_idx, path);
 
 		p_rdi->state = AIS_ISP_RESOURCE_STATE_ERROR;
 
 		client_regs = &bus_hw_info->bus_client_reg[path];
 
-		/* Disable WM and reg-update */
-		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
-		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
-				top_hw_info->common_reg->reg_update_cmd);
-		cam_io_w_mb((1 << path), core_info->mem_base +
-					bus_hw_info->common_reg.sw_reset);
-
 		core_info->bus_wr_mask1 &= ~(1 << path);
 		cam_io_w_mb(core_info->bus_wr_mask1,
 			core_info->mem_base +
 			bus_hw_irq_regs[1].mask_reg_offset);
+
+		/* Disable WM and reg-update */
+		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
+		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
+				top_hw_info->common_reg->reg_update_cmd);
+
+		cam_io_w_mb((1 << path), core_info->mem_base +
+			bus_hw_info->common_reg.sw_reset);
+
 
 		core_info->event.type = AIS_IFE_MSG_OUTPUT_ERROR;
 		core_info->event.path = path;
@@ -1112,10 +1169,11 @@ static void ais_vfe_bus_handle_client_frame_done(
 	struct ais_vfe_rdi_output         *rdi_path = NULL;
 	struct ais_vfe_buffer_t           *vfe_buf = NULL;
 	struct ais_vfe_bus_ver2_hw_info   *bus_hw_info = NULL;
-	uint64_t                           frame_cnt;
+	uint64_t                           frame_cnt = 0;
 	uint64_t                           sof_ts;
 	uint64_t                           cur_sof_hw_ts;
 	bool last_addr_match = false;
+
 
 	CAM_DBG(CAM_ISP, "I%d|R%d last_addr 0x%x",
 			core_info->vfe_idx, path, last_addr);
@@ -1134,6 +1192,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 
 	while (rdi_path->num_buffer_hw_q && !last_addr_match) {
 		struct ais_sof_info_t *p_sof_info = NULL;
+		bool is_sof_match = false;
 
 		if (list_empty(&rdi_path->buffer_hw_q)) {
 			CAM_DBG(CAM_ISP, "I%d|R%d: FD while HW Q empty",
@@ -1146,16 +1205,41 @@ static void ais_vfe_bus_handle_client_frame_done(
 		list_del_init(&vfe_buf->list);
 		--rdi_path->num_buffer_hw_q;
 
+		if (last_addr == vfe_buf->iova_addr)
+			last_addr_match = true;
+		else
+			CAM_WARN(CAM_ISP, "IFE%d buf %d did not match addr",
+				core_info->vfe_idx, vfe_buf->bufIdx);
+
 		CAM_DBG(CAM_ISP, "I%d|R%d BUF DQ %d (0x%x) FIFO:%d|0x%x",
 			core_info->vfe_idx, path,
 			vfe_buf->bufIdx, vfe_buf->iova_addr,
 			rdi_path->num_buffer_hw_q, last_addr);
 
 		if (!list_empty(&rdi_path->sof_info_q)) {
-			p_sof_info = list_first_entry(&rdi_path->sof_info_q,
-					struct ais_sof_info_t, list);
-			list_del_init(&p_sof_info->list);
-			rdi_path->num_sof_info_q--;
+			while (!is_sof_match &&
+				!list_empty(&rdi_path->sof_info_q)) {
+				p_sof_info =
+					list_first_entry(&rdi_path->sof_info_q,
+						struct ais_sof_info_t, list);
+				list_del_init(&p_sof_info->list);
+				rdi_path->num_sof_info_q--;
+				if (p_sof_info->cur_sof_hw_ts >
+					vfe_buf->ts_hw.cur_sof_ts) {
+					is_sof_match = true;
+					break;
+				}
+				list_add_tail(&p_sof_info->list,
+					&rdi_path->free_sof_info_list);
+			}
+
+			if (!is_sof_match) {
+				p_sof_info = NULL;
+				CAM_ERR(CAM_ISP,
+					"I%d|R%d: can't find the match sof",
+					core_info->vfe_idx, path);
+			}
+
 		} else
 			CAM_ERR(CAM_ISP, "I%d|R%d: SOF info Q is empty",
 				core_info->vfe_idx, path);
@@ -1175,6 +1259,12 @@ static void ais_vfe_bus_handle_client_frame_done(
 			cur_sof_hw_ts);
 
 
+		trace_ais_isp_vfe_buf_done(core_info->vfe_idx, path,
+				vfe_buf->bufIdx,
+				frame_cnt,
+				rdi_path->num_buffer_hw_q,
+				last_addr_match);
+
 		core_info->event.u.frame_msg.frame_id = frame_cnt;
 		core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
 		core_info->event.u.frame_msg.ts = sof_ts;
@@ -1183,17 +1273,15 @@ static void ais_vfe_bus_handle_client_frame_done(
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
 
-		if (last_addr == vfe_buf->iova_addr)
-			last_addr_match = true;
-		else
-			CAM_WARN(CAM_ISP, "IFE%d buf %d did not match addr",
-				core_info->vfe_idx, vfe_buf->bufIdx);
+
 		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
 	}
 
 	if (!last_addr_match) {
 		CAM_ERR(CAM_ISP, "IFE%d BUF| RDI%d NO MATCH addr 0x%x",
 			core_info->vfe_idx, path, last_addr);
+
+		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 1);
 
 		//send warning
 		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
@@ -1221,6 +1309,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 		}
 
 		rdi_path->num_sof_info_q = 0;
+
+		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 0);
 
 		//send warning
 		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
@@ -1258,8 +1348,12 @@ static int ais_vfe_bus_handle_frame_done(
 
 		if (client_mask & (0x1 << client)) {
 			//process frame done
+			AIS_ATRACE_BEGIN("FD_%u_%u_%lu",
+				core_info->vfe_idx, client, p_rdi->frame_cnt);
 			ais_vfe_bus_handle_client_frame_done(core_info,
 				client, work_data->last_addr[client]);
+			AIS_ATRACE_END("FD_%u_%u_%lu",
+				core_info->vfe_idx, client, p_rdi->frame_cnt);
 		}
 	}
 
@@ -1331,8 +1425,11 @@ static int ais_vfe_handle_bus_wr_irq(struct cam_hw_info *vfe_hw,
 		work_data->bus_wr_status[1],
 		work_data->bus_wr_status[2]);
 
-	if (work_data->bus_wr_status[1])
+	if (work_data->bus_wr_status[1]) {
+		AIS_ATRACE_BEGIN("FD_%d", core_info->vfe_idx);
 		ais_vfe_bus_handle_frame_done(core_info, work_data);
+		AIS_ATRACE_END("FD_%d", core_info->vfe_idx);
+	}
 
 	if (work_data->bus_wr_status[0] & 0x7800) {
 		CAM_ERR(CAM_ISP, "VFE%d: WR BUS error occurred status = 0x%x",
@@ -1371,6 +1468,8 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 	}
 
 	work_data = (struct ais_vfe_hw_work_data *)data;
+
+	trace_ais_isp_irq_process(core_info->vfe_idx, work_data->evt_type, 1);
 	CAM_DBG(CAM_ISP, "VFE[%d] event %d",
 		core_info->vfe_idx, work_data->evt_type);
 
@@ -1379,7 +1478,9 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 
 	switch (work_data->evt_type) {
 	case AIS_VFE_HW_IRQ_EVENT_SOF:
+		AIS_ATRACE_BEGIN("SOF_%d", core_info->vfe_idx);
 		rc = ais_vfe_handle_sof(core_info, work_data);
+		AIS_ATRACE_END("SOF_%d", core_info->vfe_idx);
 		break;
 	case AIS_VFE_HW_IRQ_EVENT_BUS_WR:
 		rc = ais_vfe_handle_bus_wr_irq(vfe_hw, core_info, work_data);
@@ -1392,6 +1493,8 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 			core_info->vfe_idx, work_data->evt_type);
 		break;
 	}
+
+	trace_ais_isp_irq_process(core_info->vfe_idx, work_data->evt_type, 2);
 
 	return rc;
 }
@@ -1416,6 +1519,8 @@ static int ais_vfe_dispatch_irq(struct cam_hw_info *vfe_hw,
 	}
 	work_data = (struct ais_vfe_hw_work_data *)task->payload;
 	*work_data = *p_work;
+
+	trace_ais_isp_irq_process(core_info->vfe_idx, p_work->evt_type, 0);
 
 	task->process_cb = ais_vfe_process_irq_bh;
 	rc = cam_req_mgr_workq_enqueue_task(task, vfe_hw,
@@ -1444,6 +1549,8 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 	cam_io_w_mb(ife_status[1], core_info->mem_base + AIS_VFE_IRQ_CLEAR1);
 	cam_io_w_mb(0x1, core_info->mem_base + AIS_VFE_IRQ_CMD);
 
+	trace_ais_isp_vfe_irq_activated(core_info->vfe_idx,
+			ife_status[0], ife_status[1]);
 	CAM_DBG(CAM_ISP, "VFE%d irq status 0x%x 0x%x", core_info->vfe_idx,
 			ife_status[0], ife_status[1]);
 
@@ -1500,6 +1607,7 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 			CAM_DBG(CAM_ISP, "IFE%d BUS_WR", core_info->vfe_idx);
 			work_data.evt_type = AIS_VFE_HW_IRQ_EVENT_BUS_WR;
 			ais_vfe_irq_fill_bus_wr_status(core_info, &work_data);
+
 			ais_vfe_dispatch_irq(vfe_hw, &work_data);
 		}
 		if (ife_status[1]) {
@@ -1508,9 +1616,10 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_SHFT) &
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_MSK;
 
-				CAM_ERR(CAM_ISP, "IFE%d Overflow 0x%x",
-						core_info->vfe_idx,
-						work_data.path);
+				CAM_ERR_RATE_LIMIT(CAM_ISP,
+					"IFE%d Overflow 0x%x",
+					core_info->vfe_idx,
+					work_data.path);
 				work_data.evt_type = AIS_VFE_HW_IRQ_EVENT_ERROR;
 				ais_vfe_dispatch_irq(vfe_hw, &work_data);
 			}

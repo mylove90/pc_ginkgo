@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +57,12 @@
 			reg = <0x87c00000 0x400000>;
 		};
 
+		tz_apps_mem: tz_apps_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x88000000 0x500000>;
+		};
+
 		audio_mem: audio_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -69,7 +75,7 @@
 			reusable;
 			alignment = <0x400000>;
 			size = <0x0400000>;
-			status = "disabled";
+			status = "ok";
 		};
 	};
 
@@ -1394,6 +1400,12 @@
 			qcom,smdpkt-dev-name = "apr_apps2";
 		};
 
+		qcom,smdpkt-data-mdm1 {
+			qcom,smdpkt-edge = "modem";
+			qcom,smdpkt-ch-name = "DS";
+			qcom,smdpkt-dev-name = "at_mdm1";
+		};
+
 		qcom,smdpkt-data1 {
 			qcom,smdpkt-edge = "modem";
 			qcom,smdpkt-ch-name = "DATA1";
@@ -1673,14 +1685,15 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@87a80000 {
+	qcom_seecom: qseecom@88000000 {
 		compatible = "qcom,qseecom";
-		reg = <0x87a80000 0x100000>;
+		reg = <0x88000000 0x500000>;
 		reg-names = "secapp-region";
 		memory-region = <&qseecom_mem>;
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
+		qcom,support-bus-scaling;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1697,7 +1710,7 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
-		status = "disabled";
+		status = "ok";
 	};
 
 	qcom_tzlog: tz-log@8600720 {

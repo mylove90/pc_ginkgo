@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,9 @@
 
 #define HGSL_DEVICE_NAME  "hgsl"
 #define HGSL_DEV_NUM 1
-#define MAX_DB_QUEUE 4
+
+/* Support upto 3 GVMs: 3 DBQs(Low/Medium/High priority) per GVM */
+#define MAX_DB_QUEUE 9
 
 #define IORESOURCE_HWINF "hgsl_reg_hwinf"
 #define IORESOURCE_GMUCX "hgsl_reg_gmucx"
@@ -686,7 +688,7 @@ static int hgsl_dbq_assign(struct file *filep, unsigned long arg)
 	if (copy_from_user(&dbq_idx, USRPTR(arg), sizeof(dbq_idx)))
 		return -EFAULT;
 
-	if (dbq_idx > MAX_DB_QUEUE)
+	if (dbq_idx >= MAX_DB_QUEUE)
 		return -EINVAL;
 
 	priv->dbq_idx = dbq_idx;
@@ -1100,6 +1102,9 @@ static int hgsl_wait_timestamp(struct file *filep, unsigned long arg)
 	}
 
 	timestamp = param.timestamp;
+
+	if (param.context_id >= HGSL_CONTEXT_NUM)
+		return -EINVAL;
 
 	read_lock(&hgsl->ctxt_lock);
 	ctxt = hgsl->contexts[param.context_id];

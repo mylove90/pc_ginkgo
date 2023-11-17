@@ -15,7 +15,9 @@
 #include <linux/blk-mq.h>
 #include <linux/blk-mq-virtio.h>
 #include <linux/numa.h>
+#ifdef CONFIG_PFK
 #include <linux/pfk.h>
+#endif
 #include <crypto/ice.h>
 
 #define PART_BITS 4
@@ -63,7 +65,6 @@ struct virtio_blk {
 	struct request *req_pending;
 	bool work_pending;
 #endif
-
 	/*
 	 * Tracks references from block_device_operations open/release and
 	 * virtio_driver probe/remove so this object can be freed once no

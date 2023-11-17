@@ -1685,17 +1685,19 @@
 				bias-pull-down;
 			};
 		};
+		sja1105_pin {
+			sja1105_default: sja1105_default {
+				mux {
+					pins =  "gpio89", "gpio91", "gpio102";
+					function = "gpio";
+				};
 
-		wakeup_gpio_default: wakeup_gpio_default {
-			mux {
-				pins = "gpio22";
-				function = "gpio";
-			};
-
-			config {
-				pins = "gpio22";
-				drive-strength = <2>;
-				bias-pull-down;
+				config {
+					pins = "gpio89", "gpio91", "gpio102";
+					drive-strength = <4>;
+					bias-pull-up;
+					output-high;
+				};
 			};
 		};
 	};

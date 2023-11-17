@@ -1102,7 +1102,8 @@ int mhi_dev_sm_init(struct mhi_dev *mhi_dev)
 
 	/*init debugfs*/
 	mhi_sm_debugfs_init();
-	mhi_sm_ctx->mhi_sm_wq = create_singlethread_workqueue("mhi_sm_wq");
+	mhi_sm_ctx->mhi_sm_wq = alloc_workqueue(
+				"mhi_sm_wq", WQ_HIGHPRI | WQ_UNBOUND, 1);
 	if (!mhi_sm_ctx->mhi_sm_wq) {
 		MHI_SM_ERR("Failed to create singlethread_workqueue: sm_wq\n");
 		res = -ENOMEM;
@@ -1478,6 +1479,7 @@ int mhi_dev_sm_syserr(void)
 }
 EXPORT_SYMBOL(mhi_dev_sm_syserr);
 
+#ifdef CONFIG_DEBUG_FS
 static ssize_t mhi_sm_debugfs_read(struct file *file, char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
@@ -1591,3 +1593,4 @@ static ssize_t mhi_sm_debugfs_write(struct file *file,
 
 	return count;
 }
+#endif

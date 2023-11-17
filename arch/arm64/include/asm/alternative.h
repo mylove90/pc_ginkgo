@@ -37,7 +37,7 @@ void apply_alternatives(void *start, size_t length);
 	" .byte 662b-661b\n"				/* source len      */ \
 	" .byte 664f-663f\n"				/* replacement len */
 
-#define ALTINSTR_ENTRY_CB(feature,cb)					      \
+#define ALTINSTR_ENTRY_CB(feature, cb)					      \
 	" .word 661b - .\n"				/* label           */ \
 	" .word " __stringify(cb) "- .\n"		/* callback */	      \
 	" .hword " __stringify(feature) "\n"		/* feature bit     */ \
@@ -68,11 +68,12 @@ void apply_alternatives(void *start, size_t length);
 	".pushsection .altinstructions,\"a\"\n"				\
 	ALTINSTR_ENTRY(feature)						\
 	".popsection\n"							\
+	".pushsection .altinstr_replacement, \"a\"\n"			\
 	".subsection 1\n"						\
 	"663:\n\t"							\
 	newinstr "\n"							\
 	"664:\n\t"							\
-	".previous\n\t"							\
+	".popsection\n\t"						\
 	".org	. - (664b-663b) + (662b-661b)\n\t"			\
 	".org	. - (662b-661b) + (664b-663b)\n"			\
 	".endif\n"
@@ -83,7 +84,7 @@ void apply_alternatives(void *start, size_t length);
 	oldinstr "\n"							\
 	"662:\n"							\
 	".pushsection .altinstructions,\"a\"\n"				\
-	ALTINSTR_ENTRY_CB(feature,cb)					\
+	ALTINSTR_ENTRY_CB(feature, cb)					\
 	".popsection\n"							\
 	"663:\n\t"							\
 	"664:\n\t"							\
@@ -112,9 +113,9 @@ void apply_alternatives(void *start, size_t length);
 662:	.pushsection .altinstructions, "a"
 	altinstruction_entry 661b, 663f, \cap, 662b-661b, 664f-663f
 	.popsection
-	.subsection 1
+	.pushsection .altinstr_replacement, "ax"
 663:	\insn2
-664:	.previous
+664:	.popsection
 	.org	. - (664b-663b) + (662b-661b)
 	.org	. - (662b-661b) + (664b-663b)
 	.endif
@@ -155,7 +156,7 @@ void apply_alternatives(void *start, size_t length);
 	.pushsection .altinstructions, "a"
 	altinstruction_entry 663f, 661f, \cap, 664f-663f, 662f-661f
 	.popsection
-	.subsection 1
+	.pushsection .altinstr_replacement, "ax"
 	.align 2	/* So GAS knows label 661 is suitably aligned */
 661:
 .endm
@@ -174,9 +175,9 @@ void apply_alternatives(void *start, size_t length);
 .macro alternative_else
 662:
 	.if .Lasm_alt_mode==0
-	.subsection 1
+	.pushsection .altinstr_replacement, "ax"
 	.else
-	.previous
+	.popsection
 	.endif
 663:
 .endm
@@ -187,7 +188,7 @@ void apply_alternatives(void *start, size_t length);
 .macro alternative_endif
 664:
 	.if .Lasm_alt_mode==0
-	.previous
+	.popsection
 	.endif
 	.org	. - (664b-663b) + (662b-661b)
 	.org	. - (662b-661b) + (664b-663b)

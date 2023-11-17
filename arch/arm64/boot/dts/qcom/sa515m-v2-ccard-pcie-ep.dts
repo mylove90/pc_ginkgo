@@ -57,7 +57,16 @@
 	qcom,pcie-perst-enum;
 };
 
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};
+
 &mhi_device {
+	reg = <0x1c03000 0x1000>,
+		<0x1e15000 0x4>,
+		<0x1e15138 0x4>;
 	status = "ok";
 };
 
@@ -74,9 +83,9 @@
 };
 
 &sdx_ext_ipc {
-		compatible = "qcom,sa515m-ccard";
-		qcom,status-in-gpio = <&tlmm 76 0x00>;
-		qcom,status-out-gpio = <&tlmm 33 0x00>;
-		qcom,status-out2-gpio = <&tlmm 31 0x00>;
-		status = "okay";
+	compatible = "qcom,sa515m-ccard";
+	qcom,status-in-gpio = <&tlmm 76 0x00>;
+	qcom,status-out-gpio = <&tlmm 33 0x00>;
+	qcom,status-out2-gpio = <&tlmm 31 0x00>;
+	status = "okay";
 };

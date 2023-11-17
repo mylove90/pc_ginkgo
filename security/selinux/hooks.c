@@ -98,13 +98,13 @@
 #include "audit.h"
 #include "avc_ss.h"
 
-struct selinux_state selinux_state;
+struct selinux_state selinux_state __rticdata;
 
 /* SECMARK reference count */
 static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
 
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
-static int selinux_enforcing_boot __rticdata;
+static int selinux_enforcing_boot;
 
 static int __init enforcing_setup(char *str)
 {
@@ -5313,7 +5313,7 @@ static int selinux_nlmsg_perm(struct sock *sk, struct sk_buff *skb)
 				sk->sk_protocol, nlh->nlmsg_type,
 				secclass_map[sclass - 1].name,
 				task_pid_nr(current), current->comm);
-			if (enforcing_enabled(&selinux_state) &&
+			if (enforcing_enabled(&selinux_state)&&
 			    !security_get_allow_unknown(&selinux_state))
 				return rc;
 			rc = 0;

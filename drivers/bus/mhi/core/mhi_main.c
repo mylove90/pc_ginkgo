@@ -1359,6 +1359,13 @@ int mhi_process_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	int ret = 0;
 
 	spin_lock_bh(&mhi_event->lock);
+	if (!is_valid_ring_ptr(ev_ring, er_ctxt->rp)) {
+		MHI_ERR(
+			"Event ring rp points outside of the event ring or unalign rp %llx\n",
+			er_ctxt->rp);
+		spin_unlock_bh(&mhi_event->lock);
+		return 0;
+	}
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
@@ -1451,8 +1458,15 @@ int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 	int result, ret = 0;
 
 	spin_lock_bh(&mhi_event->lock);
-	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
+	if (!is_valid_ring_ptr(ev_ring, er_ctxt->rp)) {
+		MHI_ERR(
+			"Event ring rp points outside of the event ring or unalign rp %llx\n",
+			er_ctxt->rp);
+		spin_unlock_bh(&mhi_event->lock);
+		return 0;
+	}
 
+	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 	if (ev_ring->rp == dev_rp) {
 		spin_unlock_bh(&mhi_event->lock);
 		goto exit_bw_scale_process;
@@ -1913,7 +1927,8 @@ int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
 	return 0;
 
 error_dec_pendpkt:
-	atomic_dec(&mhi_cntrl->pending_pkts);
+	if (in_mission_mode)
+		atomic_dec(&mhi_cntrl->pending_pkts);
 error_pm_state:
 	if (!mhi_chan->offload_ch)
 		mhi_deinit_chan_ctxt(mhi_cntrl, mhi_chan);
@@ -2604,6 +2619,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 		ret = -EIO;
 		goto error_invalid_state;
 	}
+	read_unlock_bh(&mhi_cntrl->pm_lock);
 
 	/* disable link level low power modes */
 	ret = mhi_cntrl->lpm_disable(mhi_cntrl, mhi_cntrl->priv_data);
@@ -2626,6 +2642,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 
 	mhi_cntrl->lpm_enable(mhi_cntrl, mhi_cntrl->priv_data);
 
+	read_lock_bh(&mhi_cntrl->pm_lock);
 error_invalid_state:
 	mhi_cntrl->wake_put(mhi_cntrl, false);
 	read_unlock_bh(&mhi_cntrl->pm_lock);

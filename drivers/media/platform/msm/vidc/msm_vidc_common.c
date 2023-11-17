@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, 2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2473,6 +2473,7 @@ static bool is_eos_buffer(struct msm_vidc_inst *inst, u32 device_addr)
 	list_for_each_entry_safe(temp, next, &inst->eosbufs.list, list) {
 		if (temp->smem.device_addr == device_addr) {
 			found = true;
+			temp->is_queued = 0;
 			list_del(&temp->list);
 			msm_comm_smem_free(inst, &temp->smem);
 			kfree(temp);
@@ -4098,6 +4099,9 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 
 	mutex_lock(&inst->eosbufs.lock);
 	list_for_each_entry_safe(binfo, temp, &inst->eosbufs.list, list) {
+		if (binfo->is_queued)
+			continue;
+
 		data.alloc_len = binfo->smem.size;
 		data.device_addr = binfo->smem.device_addr;
 		data.buffer_type = HAL_BUFFER_INPUT;
@@ -4113,6 +4117,7 @@ int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
 
 		rc = call_hfi_op(hdev, session_etb, inst->session,
 				&data);
+		binfo->is_queued = 1;
 	}
 	mutex_unlock(&inst->eosbufs.lock);
 
@@ -4192,7 +4197,6 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		mutex_lock(&inst->eosbufs.lock);
 		list_add_tail(&binfo->list, &inst->eosbufs.list);
 		mutex_unlock(&inst->eosbufs.lock);
-
 		rc = msm_vidc_send_pending_eos_buffers(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -5329,7 +5333,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	}
 
 	if (ip_flush)
-		 mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
+		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 	if (op_flush)
 		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 
@@ -5388,9 +5392,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	}
 
 	if (op_flush)
-		 mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
+		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 	if (ip_flush)
-		 mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
+		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
 
 	if (rc) {
 		dprintk(VIDC_ERR,
