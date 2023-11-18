@@ -2,8 +2,8 @@
   {
     "kernelSource": {
       "name": "PureCAF",
-      "repo": "https://github.com/mylove90/android_kernel_xiaomi_ginkgo.git",
-      "branch": "sdm-10-R",
+      "repo": "https://github.com/mylove90/pc_ginkgo.git",
+      "branch": "11.0",
       "device": "ginkgo",
       "defconfig": "genom_defconfig"
     },
