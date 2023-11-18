@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 - 2018 Novatek, Inc.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * $Revision: 43077 $
  * $Date: 2019-04-09 19:13:23 +0800 (週二, 09 四月 2019) $
@@ -17,6 +17,7 @@
  *
  */
 
+
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
@@ -30,18 +31,18 @@
 #define NVT_XIAOMI_CONFIG_INFO "nvt_xiaomi_config_info"
 #define LCT_TP_DATA_DUMP "tp_data_dump"
 
-#define SPI_TANSFER_LENGTH 256
+#define SPI_TANSFER_LENGTH  256
 
 #define NORMAL_MODE 0x00
 #define TEST_MODE_1 0x21
 #define TEST_MODE_2 0x22
 #define HANDSHAKING_HOST_READY 0xBB
 
-#define XDATA_SECTOR_SIZE 256
+#define XDATA_SECTOR_SIZE   256
 
-static uint8_t xdata_tmp[2048] = { 0 };
-static int32_t xdata[2048] = { 0 };
-static int32_t diff_data[2048] = { 0 };
+static uint8_t xdata_tmp[2048] = {0};
+static int32_t xdata[2048] = {0};
+static int32_t diff_data[2048] = {0};
 
 static struct proc_dir_entry *NVT_proc_fw_version_entry;
 static struct proc_dir_entry *NVT_proc_baseline_entry;
@@ -64,7 +65,7 @@ return:
 *******************************************************/
 void nvt_change_mode(uint8_t mode)
 {
-	uint8_t buf[8] = { 0 };
+	uint8_t buf[8] = {0};
 
 	//---set xdata index to EVENT BUF ADDR---
 	nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HOST_CMD);
@@ -91,11 +92,10 @@ return:
 *******************************************************/
 uint8_t nvt_get_fw_pipe(void)
 {
-	uint8_t buf[8] = { 0 };
+	uint8_t buf[8]= {0};
 
 	//---set xdata index to EVENT BUF ADDR---
-	nvt_set_page(ts->mmap->EVENT_BUF_ADDR |
-		     EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE);
+	nvt_set_page(ts->mmap->EVENT_BUF_ADDR | EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE);
 
 	//---read fw status---
 	buf[0] = EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE;
@@ -119,7 +119,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 	int32_t i = 0;
 	int32_t j = 0;
 	int32_t k = 0;
-	uint8_t buf[SPI_TANSFER_LENGTH + 1] = { 0 };
+	uint8_t buf[SPI_TANSFER_LENGTH + 1] = {0};
 	uint32_t head_addr = 0;
 	int32_t dummy_len = 0;
 	int32_t data_len = 0;
@@ -138,8 +138,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 		//---read xdata by SPI_TANSFER_LENGTH
 		for (j = 0; j < (XDATA_SECTOR_SIZE / SPI_TANSFER_LENGTH); j++) {
 			//---change xdata index---
-			nvt_set_page(head_addr + (XDATA_SECTOR_SIZE * i) +
-				     (SPI_TANSFER_LENGTH * j));
+			nvt_set_page(head_addr + (XDATA_SECTOR_SIZE * i) + (SPI_TANSFER_LENGTH * j));
 
 			//---read data---
 			buf[0] = SPI_TANSFER_LENGTH * j;
@@ -147,9 +146,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 			//---copy buf to xdata_tmp---
 			for (k = 0; k < SPI_TANSFER_LENGTH; k++) {
-				xdata_tmp[XDATA_SECTOR_SIZE * i +
-					  SPI_TANSFER_LENGTH * j + k] =
-					buf[k + 1];
+				xdata_tmp[XDATA_SECTOR_SIZE * i + SPI_TANSFER_LENGTH * j + k] = buf[k + 1];
 				//printk("0x%02X, 0x%04X\n", buf[k+1], (XDATA_SECTOR_SIZE*i + SPI_TANSFER_LENGTH*j + k));
 			}
 		}
@@ -161,8 +158,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 		//---read xdata by SPI_TANSFER_LENGTH
 		for (j = 0; j < (residual_len / SPI_TANSFER_LENGTH + 1); j++) {
 			//---change xdata index---
-			nvt_set_page(xdata_addr + data_len - residual_len +
-				     (SPI_TANSFER_LENGTH * j));
+			nvt_set_page(xdata_addr + data_len - residual_len + (SPI_TANSFER_LENGTH * j));
 
 			//---read data---
 			buf[0] = SPI_TANSFER_LENGTH * j;
@@ -170,9 +166,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 			//---copy buf to xdata_tmp---
 			for (k = 0; k < SPI_TANSFER_LENGTH; k++) {
-				xdata_tmp[(dummy_len + data_len - residual_len) +
-					  SPI_TANSFER_LENGTH * j + k] =
-					buf[k + 1];
+				xdata_tmp[(dummy_len + data_len - residual_len) + SPI_TANSFER_LENGTH * j + k] = buf[k + 1];
 				//printk("0x%02X, 0x%04x\n", buf[k+1], ((dummy_len+data_len-residual_len) + SPI_TANSFER_LENGTH*j + k));
 			}
 		}
@@ -181,8 +175,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 	//---remove dummy data and 2bytes-to-1data---
 	for (i = 0; i < (data_len / 2); i++) {
-		xdata[i] = (int16_t)(xdata_tmp[dummy_len + i * 2] +
-				     256 * xdata_tmp[dummy_len + i * 2 + 1]);
+		xdata[i] = (int16_t)(xdata_tmp[dummy_len + i * 2] + 256 * xdata_tmp[dummy_len + i * 2 + 1]);
 	}
 
 #if TOUCH_KEY_NUM > 0
@@ -195,8 +188,7 @@ void nvt_read_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 	//---2bytes-to-1data---
 	for (i = 0; i < TOUCH_KEY_NUM; i++) {
-		xdata[ts->x_num * ts->y_num + i] =
-			(int16_t)(buf[1 + i * 2] + 256 * buf[1 + i * 2 + 1]);
+		xdata[ts->x_num * ts->y_num + i] = (int16_t)(buf[1 + i * 2] + 256 * buf[1 + i * 2 + 1]);
 	}
 #endif
 
@@ -213,10 +205,9 @@ return:
 *******************************************************/
 void nvt_get_mdata(int32_t *buf, uint8_t *m_x_num, uint8_t *m_y_num)
 {
-	*m_x_num = ts->x_num;
-	*m_y_num = ts->y_num;
-	memcpy(buf, xdata,
-	       ((ts->x_num * ts->y_num + TOUCH_KEY_NUM) * sizeof(int32_t)));
+    *m_x_num = ts->x_num;
+    *m_y_num = ts->y_num;
+    memcpy(buf, xdata, ((ts->x_num * ts->y_num + TOUCH_KEY_NUM) * sizeof(int32_t)));
 }
 
 /*******************************************************
@@ -228,8 +219,7 @@ return:
 *******************************************************/
 static int32_t c_fw_version_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "fw_ver=%d, x_num=%d, y_num=%d, button_num=%d\n",
-		   ts->fw_ver, ts->x_num, ts->y_num, ts->max_button_num);
+	seq_printf(m, "fw_ver=%d, x_num=%d, y_num=%d, button_num=%d\n", ts->fw_ver, ts->x_num, ts->y_num, ts->max_button_num);
 	return 0;
 }
 
@@ -308,16 +298,18 @@ static void c_stop(struct seq_file *m, void *v)
 }
 
 const struct seq_operations nvt_fw_version_seq_ops = {
-	.start = c_start,
-	.next = c_next,
-	.stop = c_stop,
-	.show = c_fw_version_show
+	.start  = c_start,
+	.next   = c_next,
+	.stop   = c_stop,
+	.show   = c_fw_version_show
 };
 
-const struct seq_operations nvt_seq_ops = { .start = c_start,
-					    .next = c_next,
-					    .stop = c_stop,
-					    .show = c_show };
+const struct seq_operations nvt_seq_ops = {
+	.start  = c_start,
+	.next   = c_next,
+	.stop   = c_stop,
+	.show   = c_show
+};
 
 /*******************************************************
 Description:
@@ -451,11 +443,9 @@ static int32_t nvt_raw_open(struct inode *inode, struct file *file)
 	}
 
 	if (nvt_get_fw_pipe() == 0)
-		nvt_read_mdata(ts->mmap->RAW_PIPE0_ADDR,
-			       ts->mmap->RAW_BTN_PIPE0_ADDR);
+		nvt_read_mdata(ts->mmap->RAW_PIPE0_ADDR, ts->mmap->RAW_BTN_PIPE0_ADDR);
 	else
-		nvt_read_mdata(ts->mmap->RAW_PIPE1_ADDR,
-			       ts->mmap->RAW_BTN_PIPE1_ADDR);
+		nvt_read_mdata(ts->mmap->RAW_PIPE1_ADDR, ts->mmap->RAW_BTN_PIPE1_ADDR);
 
 	nvt_change_mode(NORMAL_MODE);
 
@@ -511,11 +501,9 @@ static int32_t nvt_diff_open(struct inode *inode, struct file *file)
 	}
 
 	if (nvt_get_fw_pipe() == 0)
-		nvt_read_mdata(ts->mmap->DIFF_PIPE0_ADDR,
-			       ts->mmap->DIFF_BTN_PIPE0_ADDR);
+		nvt_read_mdata(ts->mmap->DIFF_PIPE0_ADDR, ts->mmap->DIFF_BTN_PIPE0_ADDR);
 	else
-		nvt_read_mdata(ts->mmap->DIFF_PIPE1_ADDR,
-			       ts->mmap->DIFF_BTN_PIPE1_ADDR);
+		nvt_read_mdata(ts->mmap->DIFF_PIPE1_ADDR, ts->mmap->DIFF_BTN_PIPE1_ADDR);
 
 	nvt_change_mode(NORMAL_MODE);
 
@@ -536,19 +524,16 @@ static const struct file_operations nvt_diff_fops = {
 
 static int nvt_xiaomi_config_info_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "FW version/Config version, Debug version: 0x%02X\n",
-		   nvt_xiaomi_conf_info_fw_ver);
+	seq_printf(m, "FW version/Config version, Debug version: 0x%02X\n", nvt_xiaomi_conf_info_fw_ver);
 	seq_printf(m, "FAE ID: 0x%02X\n", nvt_xiaomi_conf_info_fae_id);
-	seq_printf(m, "Reservation byte: 0x%012llX\n",
-		   nvt_xiaomi_conf_info_reservation);
+	seq_printf(m, "Reservation byte: 0x%012llX\n", nvt_xiaomi_conf_info_reservation);
 
 	return 0;
 }
 
-static int32_t nvt_xiaomi_config_info_open(struct inode *inode,
-					   struct file *file)
+static int32_t nvt_xiaomi_config_info_open(struct inode *inode, struct file *file)
 {
-	uint8_t buf[16] = { 0 };
+	uint8_t buf[16] = {0};
 
 	if (mutex_lock_interruptible(&ts->lock)) {
 		return -ERESTARTSYS;
@@ -568,10 +553,7 @@ static int32_t nvt_xiaomi_config_info_open(struct inode *inode,
 
 	nvt_xiaomi_conf_info_fw_ver = buf[1];
 	nvt_xiaomi_conf_info_fae_id = buf[2];
-	nvt_xiaomi_conf_info_reservation =
-		(((uint64_t)buf[3] << 40) | ((uint64_t)buf[4] << 32) |
-		 ((uint64_t)buf[5] << 24) | ((uint64_t)buf[6] << 16) |
-		 ((uint64_t)buf[7] << 8) | (uint64_t)buf[8]);
+	nvt_xiaomi_conf_info_reservation = (((uint64_t)buf[3] << 40) | ((uint64_t)buf[4] << 32) | ((uint64_t)buf[5] << 24) | ((uint64_t)buf[6] << 16) | ((uint64_t)buf[7] << 8) | (uint64_t)buf[8]);
 
 	mutex_unlock(&ts->lock);
 
@@ -600,7 +582,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 	int32_t i = 0;
 	int32_t j = 0;
 	int32_t k = 0;
-	uint8_t buf[SPI_TANSFER_LENGTH + 1] = { 0 };
+	uint8_t buf[SPI_TANSFER_LENGTH + 1] = {0};
 	uint32_t head_addr = 0;
 	int32_t dummy_len = 0;
 	int32_t data_len = 0;
@@ -619,8 +601,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 		//---read diff_data by SPI_TANSFER_LENGTH
 		for (j = 0; j < (XDATA_SECTOR_SIZE / SPI_TANSFER_LENGTH); j++) {
 			//---change diff_data index---
-			nvt_set_page(head_addr + (XDATA_SECTOR_SIZE * i) +
-				     (SPI_TANSFER_LENGTH * j));
+			nvt_set_page(head_addr + (XDATA_SECTOR_SIZE * i) + (SPI_TANSFER_LENGTH * j));
 
 			//---read data---
 			buf[0] = SPI_TANSFER_LENGTH * j;
@@ -628,9 +609,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 			//---copy buf to xdata_tmp---
 			for (k = 0; k < SPI_TANSFER_LENGTH; k++) {
-				xdata_tmp[XDATA_SECTOR_SIZE * i +
-					  SPI_TANSFER_LENGTH * j + k] =
-					buf[k + 1];
+				xdata_tmp[XDATA_SECTOR_SIZE * i + SPI_TANSFER_LENGTH * j + k] = buf[k + 1];
 				//printk("0x%02X, 0x%04X\n", buf[k+1], (XDATA_SECTOR_SIZE*i + SPI_TANSFER_LENGTH*j + k));
 			}
 		}
@@ -642,8 +621,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 		//---read diff_data by SPI_TANSFER_LENGTH
 		for (j = 0; j < (residual_len / SPI_TANSFER_LENGTH + 1); j++) {
 			//---change diff_data index---
-			nvt_set_page(xdata_addr + data_len - residual_len +
-				     (SPI_TANSFER_LENGTH * j));
+			nvt_set_page(xdata_addr + data_len - residual_len + (SPI_TANSFER_LENGTH * j));
 
 			//---read data---
 			buf[0] = SPI_TANSFER_LENGTH * j;
@@ -651,9 +629,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 			//---copy buf to xdata_tmp---
 			for (k = 0; k < SPI_TANSFER_LENGTH; k++) {
-				xdata_tmp[(dummy_len + data_len - residual_len) +
-					  SPI_TANSFER_LENGTH * j + k] =
-					buf[k + 1];
+				xdata_tmp[(dummy_len + data_len - residual_len) + SPI_TANSFER_LENGTH * j + k] = buf[k + 1];
 				//printk("0x%02X, 0x%04x\n", buf[k+1], ((dummy_len+data_len-residual_len) + SPI_TANSFER_LENGTH*j + k));
 			}
 		}
@@ -662,9 +638,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 	//---remove dummy data and 2bytes-to-1data---
 	for (i = 0; i < (data_len / 2); i++) {
-		diff_data[i] =
-			(int16_t)(xdata_tmp[dummy_len + i * 2] +
-				  256 * xdata_tmp[dummy_len + i * 2 + 1]);
+		diff_data[i] = (int16_t)(xdata_tmp[dummy_len + i * 2] + 256 * xdata_tmp[dummy_len + i * 2 + 1]);
 	}
 
 #if TOUCH_KEY_NUM > 0
@@ -677,8 +651,7 @@ void nvt_read_diff_mdata(uint32_t xdata_addr, uint32_t xdata_btn_addr)
 
 	//---2bytes-to-1data---
 	for (i = 0; i < TOUCH_KEY_NUM; i++) {
-		diff_data[ts->x_num * ts->y_num + i] =
-			(int16_t)(buf[1 + i * 2] + 256 * buf[1 + i * 2 + 1]);
+		diff_data[ts->x_num * ts->y_num + i] = (int16_t)(buf[1 + i * 2] + 256 * buf[1 + i * 2 + 1]);
 	}
 #endif
 
@@ -711,8 +684,7 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 #if 1 //90
 	for (i = 0; i < ts->x_num; i++) {
 		for (j = 0; j < ts->y_num; j++) {
-			seq_printf(m, "%6d",
-				   xdata[ts->x_num * j + (ts->x_num - 1 - i)]);
+			seq_printf(m, "%6d", xdata[ts->x_num * j + (ts->x_num - 1 - i)]);
 		}
 		seq_puts(m, "\n");
 	}
@@ -734,6 +706,7 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 	}
 #endif
 
+
 #if TOUCH_KEY_NUM > 0
 	for (i = 0; i < TOUCH_KEY_NUM; i++) {
 		seq_printf(m, "%6d", xdata[ts->x_num * ts->y_num + i]);
@@ -753,9 +726,7 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 #if 1 //90
 	for (i = 0; i < ts->x_num; i++) {
 		for (j = 0; j < ts->y_num; j++) {
-			seq_printf(
-				m, "%6d",
-				diff_data[ts->x_num * j + (ts->x_num - 1 - i)]);
+			seq_printf(m, "%6d", diff_data[ts->x_num * j + (ts->x_num - 1 - i)]);
 		}
 		seq_puts(m, "\n");
 	}
@@ -788,10 +759,10 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 }
 
 const struct seq_operations lct_tp_data_dump_seq_ops = {
-	.start = c_start,
-	.next = c_next,
-	.stop = c_stop,
-	.show = c_tp_data_dump_show
+	.start  = c_start,
+	.next   = c_next,
+	.stop   = c_stop,
+	.show   = c_tp_data_dump_show
 };
 
 /*******************************************************
@@ -831,18 +802,14 @@ static int32_t lct_tp_data_dump_open(struct inode *inode, struct file *file)
 	}
 
 	if (nvt_get_fw_pipe() == 0)
-		nvt_read_mdata(ts->mmap->RAW_PIPE0_ADDR,
-			       ts->mmap->RAW_BTN_PIPE0_ADDR);
+		nvt_read_mdata(ts->mmap->RAW_PIPE0_ADDR, ts->mmap->RAW_BTN_PIPE0_ADDR);
 	else
-		nvt_read_mdata(ts->mmap->RAW_PIPE1_ADDR,
-			       ts->mmap->RAW_BTN_PIPE1_ADDR);
+		nvt_read_mdata(ts->mmap->RAW_PIPE1_ADDR, ts->mmap->RAW_BTN_PIPE1_ADDR);
 
 	if (nvt_get_fw_pipe() == 0)
-		nvt_read_diff_mdata(ts->mmap->DIFF_PIPE0_ADDR,
-				    ts->mmap->DIFF_BTN_PIPE0_ADDR);
+		nvt_read_diff_mdata(ts->mmap->DIFF_PIPE0_ADDR, ts->mmap->DIFF_BTN_PIPE0_ADDR);
 	else
-		nvt_read_diff_mdata(ts->mmap->DIFF_PIPE1_ADDR,
-				    ts->mmap->DIFF_BTN_PIPE1_ADDR);
+		nvt_read_diff_mdata(ts->mmap->DIFF_PIPE1_ADDR, ts->mmap->DIFF_BTN_PIPE1_ADDR);
 
 	nvt_change_mode(NORMAL_MODE);
 
@@ -871,8 +838,7 @@ return:
 *******************************************************/
 int32_t nvt_extra_proc_init(void)
 {
-	NVT_proc_fw_version_entry =
-		proc_create(NVT_FW_VERSION, 0444, NULL, &nvt_fw_version_fops);
+	NVT_proc_fw_version_entry = proc_create(NVT_FW_VERSION, 0444, NULL,&nvt_fw_version_fops);
 	if (NVT_proc_fw_version_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", NVT_FW_VERSION);
 		return -ENOMEM;
@@ -880,8 +846,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_FW_VERSION);
 	}
 
-	NVT_proc_baseline_entry =
-		proc_create(NVT_BASELINE, 0444, NULL, &nvt_baseline_fops);
+	NVT_proc_baseline_entry = proc_create(NVT_BASELINE, 0444, NULL,&nvt_baseline_fops);
 	if (NVT_proc_baseline_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", NVT_BASELINE);
 		return -ENOMEM;
@@ -889,7 +854,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_BASELINE);
 	}
 
-	NVT_proc_raw_entry = proc_create(NVT_RAW, 0444, NULL, &nvt_raw_fops);
+	NVT_proc_raw_entry = proc_create(NVT_RAW, 0444, NULL,&nvt_raw_fops);
 	if (NVT_proc_raw_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", NVT_RAW);
 		return -ENOMEM;
@@ -897,7 +862,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_RAW);
 	}
 
-	NVT_proc_diff_entry = proc_create(NVT_DIFF, 0444, NULL, &nvt_diff_fops);
+	NVT_proc_diff_entry = proc_create(NVT_DIFF, 0444, NULL,&nvt_diff_fops);
 	if (NVT_proc_diff_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", NVT_DIFF);
 		return -ENOMEM;
@@ -905,9 +870,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_DIFF);
 	}
 
-	NVT_proc_xiaomi_config_info_entry =
-		proc_create(NVT_XIAOMI_CONFIG_INFO, 0444, NULL,
-			    &nvt_xiaomi_config_info_fops);
+	NVT_proc_xiaomi_config_info_entry = proc_create(NVT_XIAOMI_CONFIG_INFO, 0444, NULL, &nvt_xiaomi_config_info_fops);
 	if (NVT_proc_xiaomi_config_info_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", NVT_XIAOMI_CONFIG_INFO);
 		return -ENOMEM;
@@ -915,8 +878,7 @@ int32_t nvt_extra_proc_init(void)
 		NVT_LOG("create proc/%s Succeeded!\n", NVT_XIAOMI_CONFIG_INFO);
 	}
 
-	LCT_proc_tp_data_dump_entry = proc_create(LCT_TP_DATA_DUMP, 0444, NULL,
-						  &lct_tp_data_dump_fops);
+	LCT_proc_tp_data_dump_entry = proc_create(LCT_TP_DATA_DUMP, 0444, NULL, &lct_tp_data_dump_fops);
 	if (LCT_proc_tp_data_dump_entry == NULL) {
 		NVT_ERR("create proc/%s Failed!\n", LCT_TP_DATA_DUMP);
 		return -ENOMEM;

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 - 2018 Novatek, Inc.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * $Revision: 43560 $
  * $Date: 2019-04-19 11:34:19 +0800 (週五, 19 四月 2019) $
@@ -21,6 +21,8 @@
 #include <linux/gpio.h>
 
 #include "nt36xxx.h"
+#include "NVT_firmware_TM.h"
+#include "NVT_firmware_EBBG.h"
 
 #if BOOT_UPDATE_FIRMWARE
 
@@ -35,12 +37,9 @@
 #define NVT_DUMP_PARTITION_LEN  (1024)
 #define NVT_DUMP_PARTITION_PATH "/data/local/tmp"
 
-#if NVT_USB_PLUGIN
-extern touchscreen_usb_plugin_data_t g_touchscreen_usb_pulgin;
-#endif
-
 struct timeval start, end;
 const struct firmware *fw_entry = NULL;
+struct firmware *request_fw_headfile = NULL;
 static size_t fw_need_write_size = 0;
 static uint8_t *fwbuf = NULL;
 
@@ -98,7 +97,7 @@ static int32_t nvt_download_init(void)
 
 	if (fwbuf == NULL) {
 		fwbuf = (uint8_t *)kzalloc((NVT_TRANSFER_LEN+1), GFP_KERNEL);
-		if (fwbuf == NULL) {
+		if(fwbuf == NULL) {
 			NVT_ERR("kzalloc for fwbuf failed!\n");
 			return -ENOMEM;
 		}
@@ -124,7 +123,7 @@ static uint32_t CheckSum(const u8 *data, size_t len)
 		checksum += data[i];
 
 	checksum += len;
-	checksum = ~checksum + 1;
+	checksum = ~checksum +1;
 
 	return checksum;
 }
@@ -156,7 +155,7 @@ static int32_t nvt_bin_header_parser(const u8 *fwdata, size_t fwsize)
 	end = fwdata[0] + (fwdata[1] << 8) + (fwdata[2] << 16) + (fwdata[3] << 24);
 	pos = 0x30;	// info section start at 0x30 offset
 	while (pos < end) {
-		info_sec_num++;
+		info_sec_num ++;
 		pos += 0x10;	/* each header info is 16 bytes */
 	}
 
@@ -178,7 +177,7 @@ static int32_t nvt_bin_header_parser(const u8 *fwdata, size_t fwsize)
 
 	/* allocated memory for header info */
 	bin_map = (struct nvt_ts_bin_map *)kzalloc((partition+1) * sizeof(struct nvt_ts_bin_map), GFP_KERNEL);
-	if (bin_map == NULL) {
+	if(bin_map == NULL) {
 		NVT_ERR("kzalloc for bin_map failed!\n");
 		return -ENOMEM;
 	}
@@ -233,10 +232,11 @@ static int32_t nvt_bin_header_parser(const u8 *fwdata, size_t fwsize)
 				}
 			} //ts->hw_crc
 			/* detect header end to protect parser function */
-			if ((bin_map[list].BIN_addr == 0) && (bin_map[list].size != 0))
+			if ((bin_map[list].BIN_addr == 0) && (bin_map[list].size != 0)) {
 				sprintf(bin_map[list].name, "Header");
-			else
+			} else {
 				sprintf(bin_map[list].name, "Info-%d", (list - ilm_dlm_num));
+			}
 		}
 
 		/*
@@ -245,7 +245,7 @@ static int32_t nvt_bin_header_parser(const u8 *fwdata, size_t fwsize)
 		 */
 		if (list >= (ilm_dlm_num + info_sec_num)) {
 			/* overlay info located at DLM (list = 1) start addr */
-			pos = bin_map[1].BIN_addr + (0x10 * (list - ilm_dlm_num - info_sec_num));
+			pos = bin_map[1].BIN_addr + (0x10 * (list- ilm_dlm_num - info_sec_num));
 
 			bin_map[list].SRAM_addr = byte_to_word(&fwdata[pos]);
 			bin_map[list].size = byte_to_word(&fwdata[pos+4]);
@@ -261,7 +261,7 @@ static int32_t nvt_bin_header_parser(const u8 *fwdata, size_t fwsize)
 					return -EINVAL;
 				}
 			} //ts->hw_crc
-			sprintf(bin_map[list].name, "Overlay-%d", (list - ilm_dlm_num - info_sec_num));
+			sprintf(bin_map[list].name, "Overlay-%d", (list- ilm_dlm_num - info_sec_num));
 		}
 
 		/* BIN size error detect */
@@ -288,10 +288,14 @@ return:
 *******************************************************/
 static void update_firmware_release(void)
 {
-	if (fw_entry)
+	if (!IS_ERR_OR_NULL(request_fw_headfile)) {
+		kfree(request_fw_headfile);
+		request_fw_headfile = NULL;
+		fw_entry = NULL;
+	} else if (!IS_ERR_OR_NULL(fw_entry)) {
 		release_firmware(fw_entry);
-
-	fw_entry = NULL;
+		fw_entry = NULL;
+	}
 }
 
 /*******************************************************
@@ -306,16 +310,41 @@ static int32_t update_firmware_request(char *filename)
 	uint8_t retry = 0;
 	int32_t ret = 0;
 
-	if (filename == NULL)
+	if (NULL == filename) {
 		return -ENOENT;
+	}
 
 	while (1) {
 		NVT_LOG("filename is %s\n", filename);
 
 		ret = request_firmware(&fw_entry, filename, &ts->client->dev);
 		if (ret) {
-			NVT_ERR("firmware load failed, ret=%d\n", ret);
-			goto request_fail;
+			if (!strcmp(filename, BOOT_UPDATE_TIANMA_FIRMWARE_NAME)) {
+				NVT_LOG("request firmware failed, get from headfile\n");
+				request_fw_headfile = kzalloc(sizeof(struct firmware), GFP_KERNEL);
+				if(request_fw_headfile == NULL) {
+					NVT_LOG("request_fw_headfile kzalloc failed!\n");
+					ret = -1;
+					goto request_fail;
+				}
+				request_fw_headfile->size = sizeof(FIRMWARE_DATA_TM);
+				request_fw_headfile->data = FIRMWARE_DATA_TM;
+				fw_entry = request_fw_headfile;
+			}else if (!strcmp(filename, BOOT_UPDATE_EBBG_FIRMWARE_NAME)) {
+				NVT_LOG("request firmware failed, get from headfile\n");
+				request_fw_headfile = kzalloc(sizeof(struct firmware), GFP_KERNEL);
+				if(request_fw_headfile == NULL) {
+					NVT_LOG("request_fw_headfile kzalloc failed!\n");
+					ret = -1;
+					goto request_fail;
+				}
+				request_fw_headfile->size = sizeof(FIRMWARE_DATA_EBBG);
+				request_fw_headfile->data = FIRMWARE_DATA_EBBG;
+				fw_entry = request_fw_headfile;
+			} else {
+				NVT_ERR("firmware load failed, ret=%d\n", ret);
+				goto request_fail;
+			}
 		}
 
 		// check FW need to write size
@@ -351,7 +380,7 @@ invalid:
 
 request_fail:
 		retry++;
-		if (unlikely(retry > 2)) {
+		if(unlikely(retry > 2)) {
 			NVT_ERR("error, retry=%d\n", retry);
 			break;
 		}
@@ -381,7 +410,7 @@ static int32_t nvt_read_ram_and_save_file(uint32_t addr, uint16_t len, char *nam
 	NVT_LOG("Dump [%s] from 0x%08X to 0x%08X\n", file, addr, addr+len);
 
 	fbufp = (uint8_t *)kzalloc(len+1, GFP_KERNEL);
-	if (fbufp == NULL) {
+	if(fbufp == NULL) {
 		NVT_ERR("kzalloc for fbufp failed!\n");
 		ret = -ENOMEM;
 		goto alloc_buf_fail;
@@ -446,7 +475,7 @@ static int32_t nvt_dump_partition(void)
 	int32_t count = 0;
 	int32_t ret = 0;
 
-	if (sizeof(ts->rbuf) >= NVT_DUMP_PARTITION_LEN) {
+	if (NVT_DUMP_PARTITION_LEN >= sizeof(ts->rbuf)) {
 		NVT_ERR("dump len %d is larger than buffer size %ld\n",
 				NVT_DUMP_PARTITION_LEN, sizeof(ts->rbuf));
 		return -EINVAL;
@@ -472,7 +501,7 @@ static int32_t nvt_dump_partition(void)
 		if (!size)
 			continue;
 		else
-			size = size + 1;
+			size = size +1;
 
 		/* write data to SRAM */
 		if (size % NVT_DUMP_PARTITION_LEN)
@@ -593,7 +622,7 @@ static int32_t nvt_write_firmware(const u8 *fwdata, size_t fwsize)
 		if (!size)
 			continue;
 		else
-			size = size + 1;
+			size = size +1;
 
 		/* write data to SRAM */
 		ret = nvt_write_sram(fwdata, SRAM_addr, size, BIN_addr);
@@ -644,7 +673,7 @@ static int32_t nvt_check_fw_checksum(void)
 		fw_checksum = byte_to_word(&fwbuf[1+list*4]);
 
 		/* ignore reserved partition (Reserved Partition size is zero) */
-		if (!bin_map[list].size)
+		if(!bin_map[list].size)
 			continue;
 
 		if (bin_map[list].crc != fw_checksum) {
@@ -683,10 +712,11 @@ static void nvt_set_bld_crc_bank(uint32_t DES_ADDR, uint32_t SRAM_ADDR,
 	fwbuf[1] = (size) & 0xFF;
 	fwbuf[2] = (size >> 8) & 0xFF;
 	fwbuf[3] = (size >> 16) & 0x01;
-	if (ts->hw_crc == 1)
+	if (ts->hw_crc == 1) {
 		CTP_SPI_WRITE(ts->client, fwbuf, 3);
-	else if (ts->hw_crc > 1)
+	} else if (ts->hw_crc > 1) {
 		CTP_SPI_WRITE(ts->client, fwbuf, 4);
+	}
 
 	/* write golden dlm checksum */
 	//nvt_set_page(G_CHECKSUM_ADDR);
@@ -751,8 +781,9 @@ static int32_t nvt_download_firmware_hw_crc(void)
 
 #if NVT_DUMP_PARTITION
 		ret = nvt_dump_partition();
-		if (ret)
+		if (ret) {
 			NVT_ERR("nvt_dump_partition failed, ret = %d\n", ret);
+		}
 #endif
 
 		/* set ilm & dlm reg bank */
@@ -777,7 +808,7 @@ static int32_t nvt_download_firmware_hw_crc(void)
 
 fail:
 		retry++;
-		if (unlikely(retry > 2)) {
+		if(unlikely(retry > 2)) {
 			NVT_ERR("error, retry=%d\n", retry);
 			break;
 		}
@@ -831,8 +862,9 @@ static int32_t nvt_download_firmware(void)
 
 #if NVT_DUMP_PARTITION
 		ret = nvt_dump_partition();
-		if (ret)
+		if (ret) {
 			NVT_ERR("nvt_dump_partition failed, ret = %d\n", ret);
+		}
 #endif
 
 		/* Set Boot Ready Bit */
@@ -855,7 +887,7 @@ static int32_t nvt_download_firmware(void)
 
 fail:
 		retry++;
-		if (unlikely(retry > 2)) {
+		if(unlikely(retry > 2)) {
 			NVT_ERR("error, retry=%d\n", retry);
 			break;
 		}
@@ -906,8 +938,9 @@ int32_t nvt_update_firmware(char *firmware_name)
 
 	/* Get FW Info */
 	ret = nvt_get_fw_info();
-	if (ret)
+	if (ret) {
 		NVT_ERR("nvt_get_fw_info failed. (%d)\n", ret);
+	}
 
 download_fail:
 	if (!IS_ERR_OR_NULL(bin_map)) {
@@ -934,11 +967,5 @@ void Boot_Update_Firmware(struct work_struct *work)
 	mutex_lock(&ts->lock);
 	nvt_update_firmware(ts->boot_update_firmware_name);
 	mutex_unlock(&ts->lock);
-#if NVT_USB_PLUGIN
-	if (!IS_ERR_OR_NULL(g_touchscreen_usb_pulgin.event_callback))
-		g_touchscreen_usb_pulgin.valid = true;
-	if (g_touchscreen_usb_pulgin.valid && g_touchscreen_usb_pulgin.usb_plugged_in)
-		g_touchscreen_usb_pulgin.event_callback();
-#endif
 }
 #endif /* BOOT_UPDATE_FIRMWARE */
