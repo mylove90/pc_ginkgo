@@ -9,7 +9,7 @@
 #include <linux/types.h>
 #include <linux/notifier.h>
 /**********************************************************/
-enum FP_MODE {
+enum FP_MODE{
 	GF_IMAGE_MODE = 0,
 	GF_KEY_MODE,
 	GF_SLEEP_MODE,
@@ -93,6 +93,7 @@ struct gf_ioc_chip_info {
 #define GF_IOC_GET_FW_INFO      _IOR(GF_IOC_MAGIC, 11, uint8_t)
 #define GF_IOC_REMOVE           _IO(GF_IOC_MAGIC, 12)
 #define GF_IOC_CHIP_INFO        _IOW(GF_IOC_MAGIC, 13, struct gf_ioc_chip_info)
+#define GF_IOC_HAL_INITED_READY _IO(GF_IOC_MAGIC, 15)
 
 #if defined(SUPPORT_NAV_EVENT)
 #define GF_IOC_NAV_EVENT	_IOW(GF_IOC_MAGIC, 14, gf_nav_event_t)
@@ -141,7 +142,7 @@ struct gf_dev {
 	struct work_struct work;
 };
 
-int gf_parse_dts(struct gf_dev *gf_dev);
+int gf_parse_dts(struct gf_dev* gf_dev);
 void gf_cleanup(struct gf_dev *gf_dev);
 
 int gf_power_on(struct gf_dev *gf_dev);
@@ -153,6 +154,4 @@ int gf_irq_num(struct gf_dev *gf_dev);
 void sendnlmsg(char *message);
 int netlink_init(void);
 void netlink_exit(void);
-
-extern int fpsensor;
 #endif /*__GF_SPI_H*/

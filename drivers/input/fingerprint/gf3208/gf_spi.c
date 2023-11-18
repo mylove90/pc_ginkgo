@@ -1,7 +1,7 @@
 /*
  * TEE driver for goodix fingerprint sensor
  * Copyright (C) 2016 Goodix
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@
 #include <linux/pm_qos.h>
 #include <linux/cpufreq.h>
 #include <linux/mdss_io_util.h>
+//#include <linux/wakelock.h>
 #include <linux/proc_fs.h>
 #include "gf_spi.h"
 #include <linux/unistd.h>
@@ -62,41 +63,62 @@
 
 #define WAKELOCK_HOLD_TIME 2000 /* in ms */
 #define FP_UNLOCK_REJECTION_TIMEOUT (WAKELOCK_HOLD_TIME - 500)
-#define GF_SPIDEV_NAME "goodix,fingerprint"
-/*device name after register in character*/
-#define GF_DEV_NAME "goodix_fp"
-#define GF_INPUT_NAME "uinput-goodix"/*"goodix_fp" */
+#define GF_SPIDEV_NAME     "goodix,fingerprint"
+/*device name after register in charater*/
+#define GF_DEV_NAME            "goodix_fp"
+#define	GF_INPUT_NAME	    "uinput-goodix"/*"goodix_fp" */
 
-#define CHRD_DRIVER_NAME "goodix_fp_spi"
-#define CLASS_NAME "goodix_fp"
+#define	CHRD_DRIVER_NAME	"goodix_fp_spi"
+#define	CLASS_NAME		    "goodix_fp"
 
-#define PROC_NAME "hwinfo"
+#define PROC_NAME  "hwinfo"
 
-#define N_SPI_MINORS 32	/* ... up to 256 */
+#define N_SPI_MINORS		32	/* ... up to 256 */
 static int SPIDEV_MAJOR;
 
 static DECLARE_BITMAP(minors, N_SPI_MINORS);
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
-static struct wakeup_source fp_ws;
+//static struct wake_lock fp_wakelock;
+static struct wakeup_source fp_ws;//for kernel 4.9
 static struct gf_dev gf;
 
+extern int fpsensor;
 static struct proc_dir_entry *proc_entry;
 
+#if 0
+static struct gf_key_map maps[] = {
+	{ EV_KEY, GF_KEY_INPUT_HOME },
+	{ EV_KEY, GF_KEY_INPUT_MENU },
+	{ EV_KEY, GF_KEY_INPUT_BACK },
+	{ EV_KEY, GF_KEY_INPUT_POWER },
+#if defined(SUPPORT_NAV_EVENT)
+	{ EV_KEY, GF_NAV_INPUT_UP },
+	{ EV_KEY, GF_NAV_INPUT_DOWN },
+	{ EV_KEY, GF_NAV_INPUT_RIGHT },
+	{ EV_KEY, GF_NAV_INPUT_LEFT },
+	{ EV_KEY, GF_KEY_INPUT_CAMERA },
+	{ EV_KEY, GF_NAV_INPUT_CLICK },
+	{ EV_KEY, GF_NAV_INPUT_DOUBLE_CLICK },
+	{ EV_KEY, GF_NAV_INPUT_LONG_PRESS },
+	{ EV_KEY, GF_NAV_INPUT_HEAVY },
+#endif
+};
+#endif
 struct gf_key_map maps[] = {
-	{ EV_KEY, KEY_HOME },
-	{ EV_KEY, KEY_MENU },
-	{ EV_KEY, KEY_BACK },
-	{ EV_KEY, KEY_POWER },
-	{ EV_KEY, KEY_UP },
-	{ EV_KEY, KEY_DOWN },
-	{ EV_KEY, KEY_RIGHT },
-	{ EV_KEY, KEY_LEFT },
-	{ EV_KEY, KEY_CAMERA },
-	{ EV_KEY, KEY_F9 },
-	{ EV_KEY, KEY_F19 },
-	{ EV_KEY, KEY_ENTER},
-	{ EV_KEY, KEY_KPENTER },
+        { EV_KEY, KEY_HOME },
+        { EV_KEY, KEY_MENU },
+        { EV_KEY, KEY_BACK },
+        { EV_KEY, KEY_POWER },
+        { EV_KEY, KEY_UP },
+        { EV_KEY, KEY_DOWN },
+        { EV_KEY, KEY_RIGHT },
+        { EV_KEY, KEY_LEFT },
+        { EV_KEY, KEY_CAMERA },
+        { EV_KEY, KEY_F9 },
+        { EV_KEY, KEY_F19 },
+        { EV_KEY, KEY_ENTER},
+        { EV_KEY, KEY_KPENTER },
 
 };
 
@@ -328,11 +350,11 @@ static irqreturn_t gf_irq(int irq, void *handle)
 #if defined(GF_NETLINK_ENABLE)
 	char msg = GF_NET_EVENT_IRQ;
 	struct gf_dev *gf_dev = &gf;
-
-	__pm_wakeup_event(&fp_ws, WAKELOCK_HOLD_TIME);
+	//wake_lock_timeout(&fp_wakelock, msecs_to_jiffies(WAKELOCK_HOLD_TIME));
+	__pm_wakeup_event(&fp_ws, WAKELOCK_HOLD_TIME);//for kernel 4.9
 	sendnlmsg(&msg);
 	if (gf_dev->device_available == 1) {
-		pr_info("%s:shedule_work\n", __func__);
+		printk("%s:shedule_work\n",__func__);
 		gf_dev->wait_finger_down = false;
 		schedule_work(&gf_dev->work);
 	}
@@ -515,6 +537,8 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case GF_IOC_REMOVE:
 		pr_debug("%s GF_IOC_REMOVE\n", __func__);
+		//irq_cleanup(gf_dev);
+		//gf_cleanup(gf_dev);
 		break;
 
 	case GF_IOC_CHIP_INFO:
@@ -526,6 +550,11 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		pr_info("vendor_id : 0x%x\n", info.vendor_id);
 		pr_info("mode : 0x%x\n", info.mode);
 		pr_info("operation: 0x%x\n", info.operation);
+		break;
+
+        case GF_IOC_HAL_INITED_READY:
+		pr_debug("%s GF_IOC_HAL_INITED_READY\n", __func__);
+		gf_dev->device_available = 1;
 		break;
 
 	default:
@@ -543,7 +572,7 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 }
 #endif /*CONFIG_COMPAT*/
 
-static void notification_work(struct work_struct *work)
+ static void notification_work(struct work_struct *work)
 {
 	pr_debug("%s unblank\n", __func__);
 	dsi_bridge_interface_enable(FP_UNLOCK_REJECTION_TIMEOUT);
@@ -580,8 +609,8 @@ static int gf_open(struct inode *inode, struct file *filp)
 				if (status)
 					goto err_irq;
 			}
+			//gf_hw_reset(gf_dev, 3);//reserve for timing sequence
 			gf_disable_irq(gf_dev);
-			gf_dev->device_available = 1;
 		}
 	} else {
 		pr_info("No device for minor %d\n", iminor(inode));
@@ -596,16 +625,16 @@ err_parse_dt:
 	return status;
 }
 
-static int proc_show_ver(struct seq_file *file, void *v)
+static int proc_show_ver(struct seq_file *file,void *v)
 {
-	seq_printf(file, "Fingerprint: Goodix\n");
+	seq_printf(file,"Fingerprint: Goodix\n");
 	return 0;
 }
 
-static int proc_open(struct inode *inode, struct file *file)
+static int proc_open(struct inode *inode,struct file *file)
 {
-	pr_info("gf3258 %s\n", __func__);
-	single_open(file, proc_show_ver, NULL);
+	printk("gf3258 proc_open\n");
+	single_open(file,proc_show_ver,NULL);
 	return 0;
 }
 
@@ -634,7 +663,8 @@ static int gf_release(struct inode *inode, struct file *filp)
 	gf_dev->users--;
 	if (!gf_dev->users) {
 
-		pr_info("disable_irq. irq = %d\n", gf_dev->irq);
+		pr_info("disble_irq. irq = %d\n", gf_dev->irq);
+		//gf_disable_irq(gf_dev);
 		irq_cleanup(gf_dev);
 		gf_cleanup(gf_dev);
 		/*power off the sensor*/
@@ -679,22 +709,23 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 
 	if (val != MSM_DRM_EVENT_BLANK && val != MSM_DRM_EARLY_EVENT_BLANK)
 		return 0;
-	pr_info("[info] go to the %s value = %d\n",
+	pr_info("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
 			__func__, (int)val);
 	gf_dev = container_of(nb, struct gf_dev, notifier);
 	if (evdata && evdata->data && val == MSM_DRM_EVENT_BLANK && gf_dev) {
 		blank = evdata->data;
 		if (gf_dev->device_available == 1 && *blank == MSM_DRM_BLANK_UNBLANK) {
-			gf_dev->fb_black = 0;
+				gf_dev->fb_black = 0;
 #if defined(GF_NETLINK_ENABLE)
-			msg = GF_NET_EVENT_FB_UNBLACK;
-			sendnlmsg(&msg);
+				msg = GF_NET_EVENT_FB_UNBLACK;
+				sendnlmsg(&msg);
 #elif defined(GF_FASYNC)
-			if (gf_dev->async)
-				kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
+				if (gf_dev->async)
+					kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
 #endif
-		}
-	} else if (evdata && evdata->data && val == MSM_DRM_EARLY_EVENT_BLANK && gf_dev) {
+			}
+
+	}else if(evdata && evdata->data && val == MSM_DRM_EARLY_EVENT_BLANK && gf_dev){
 		blank = evdata->data;
 			if (gf_dev->device_available == 1 && *blank == MSM_DRM_BLANK_POWERDOWN) {
 				gf_dev->fb_black = 1;
@@ -727,8 +758,7 @@ static int gf_probe(struct platform_device *pdev)
 	int status = -EINVAL;
 	unsigned long minor;
 	int i;
-
-	pr_info("Macle11 %s\n", __func__);
+	printk("Macle11 gf_probe\n");
 	/* Initialize the driver data */
 	INIT_LIST_HEAD(&gf_dev->device_entry);
 #if defined(USE_SPI_BUS)
@@ -763,7 +793,7 @@ static int gf_probe(struct platform_device *pdev)
 		goto error_hw;
 	}
 
-
+      
 	if (status == 0) {
 		set_bit(minor, minors);
 		list_add(&gf_dev->device_entry, &device_list);
@@ -773,7 +803,7 @@ static int gf_probe(struct platform_device *pdev)
 	}
 	mutex_unlock(&device_list_lock);
 
-
+  
 	gf_dev->input = input_allocate_device();
 	if (gf_dev->input == NULL) {
 		pr_err("%s, failed to allocate input device\n", __func__);
@@ -806,14 +836,15 @@ static int gf_probe(struct platform_device *pdev)
 	gf_dev->notifier = goodix_noti_block;
 	msm_drm_register_client(&gf_dev->notifier);
 
-	wakeup_source_init(&fp_ws, "fp_ws");
+	//wake_lock_init(&fp_wakelock, WAKE_LOCK_SUSPEND, "fp_wakelock");
+	wakeup_source_init(&fp_ws, "fp_ws");//for kernel 4.9
 
 	proc_entry = proc_create(PROC_NAME, 0644, NULL, &proc_file_ops);
-	if (proc_entry == NULL) {
-		pr_err("gf3258 Couldn't create proc entry!");
+	if (NULL == proc_entry) {
+		printk("gf3258 Couldn't create proc entry!");
 		return -ENOMEM;
 	} else {
-		pr_info("gf3258 Create proc entry success!");
+		printk("gf3258 Create proc entry success!");
 	}
 
 	pr_info("version V%d.%d.%02d\n", VER_MAJOR, VER_MINOR, PATCH_LEVEL);
@@ -852,7 +883,8 @@ static int gf_remove(struct platform_device *pdev)
 {
 	struct gf_dev *gf_dev = &gf;
 
-	wakeup_source_trash(&fp_ws);
+	//wake_lock_destroy(&fp_wakelock);
+	wakeup_source_trash(&fp_ws);//for kernel 4.9
 	msm_drm_unregister_client(&gf_dev->notifier);
 	if (gf_dev->input)
 		input_unregister_device(gf_dev->input);
@@ -863,7 +895,7 @@ static int gf_remove(struct platform_device *pdev)
 	list_del(&gf_dev->device_entry);
 	device_destroy(gf_class, gf_dev->devt);
 	clear_bit(MINOR(gf_dev->devt), minors);
-	remove_proc_entry(PROC_NAME, NULL);
+	remove_proc_entry(PROC_NAME,NULL);
 	mutex_unlock(&device_list_lock);
 
 	return 0;
@@ -892,15 +924,15 @@ static int __init gf_init(void)
 {
 	int status;
 
-	if (fpsensor != 2) {
-		pr_err("hml %s failed as fpsensor = %d(2=gdx)\n", __func__, fpsensor);
-		return -1;
-	}
-
 	/* Claim our 256 reserved device numbers.  Then register a class
 	 * that will key udev/mdev to add/remove /dev nodes.  Last, register
 	 * the driver which manages those device numbers.
 	 */
+	if(fpsensor != 2) {
+    	pr_err(" hml gf_init failed as fpsensor = %d(2=gdx)\n", fpsensor);
+        return -1;
+    }
+
 	BUILD_BUG_ON(N_SPI_MINORS > 256);
 	status = register_chrdev(SPIDEV_MAJOR, CHRD_DRIVER_NAME, &gf_fops);
 	if (status < 0) {
