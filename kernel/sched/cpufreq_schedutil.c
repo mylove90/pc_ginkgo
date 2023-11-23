@@ -888,25 +888,19 @@ static int sugov_init(struct cpufreq_policy *policy)
 	struct sugov_policy *sg_policy;
 	struct sugov_tunables *tunables;
 	int ret = 0;
-
 	/* State should be equivalent to EXIT */
 	if (policy->governor_data)
 		return -EBUSY;
-
 	cpufreq_enable_fast_switch(policy);
-
 	sg_policy = sugov_policy_alloc(policy);
 	if (!sg_policy) {
 		ret = -ENOMEM;
 		goto disable_fast_switch;
 	}
-
 	ret = sugov_kthread_create(sg_policy);
 	if (ret)
 		goto free_sg_policy;
-
 	mutex_lock(&global_tunables_lock);
-
 	if (global_tunables) {
 		if (WARN_ON(have_governor_per_policy())) {
 			ret = -EINVAL;
@@ -914,55 +908,40 @@ static int sugov_init(struct cpufreq_policy *policy)
 		}
 		policy->governor_data = sg_policy;
 		sg_policy->tunables = global_tunables;
-
 		gov_attr_set_get(&global_tunables->attr_set, &sg_policy->tunables_hook);
 		goto out;
 	}
-
 	tunables = sugov_tunables_alloc(sg_policy);
 	if (!tunables) {
 		ret = -ENOMEM;
 		goto stop_kthread;
 	}
-
-	tunables->up_rate_limit_us =
-				cpufreq_policy_transition_delay_us(policy);
-	tunables->down_rate_limit_us =
-				cpufreq_policy_transition_delay_us(policy);
+	tunables->up_rate_limit_us = cpufreq_policy_transition_delay_us(policy);
+	tunables->down_rate_limit_us = cpufreq_policy_transition_delay_us(policy);
 	tunables->hispeed_load = DEFAULT_HISPEED_LOAD;
 	tunables->hispeed_freq = 0;
-
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
 	stale_ns = sched_ravg_window + (sched_ravg_window >> 3);
-
-	sugov_tunables_restore(policy);
-
 	ret = kobject_init_and_add(&tunables->attr_set.kobj, &sugov_tunables_ktype,
 				   get_governor_parent_kobj(policy), "%s",
 				   schedutil_gov.name);
 	if (ret)
 		goto fail;
-
 out:
 	mutex_unlock(&global_tunables_lock);
 	return 0;
-
 fail:
 	kobject_put(&tunables->attr_set.kobj);
 	policy->governor_data = NULL;
 	sugov_clear_global_tunables();
-
 stop_kthread:
 	sugov_kthread_stop(sg_policy);
 	mutex_unlock(&global_tunables_lock);
-
 free_sg_policy:
 	sugov_policy_free(sg_policy);
-
 disable_fast_switch:
 	cpufreq_disable_fast_switch(policy);
-
 	pr_err("initialization failed (error %d)\n", ret);
 	return ret;
 }
