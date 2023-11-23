@@ -1475,8 +1475,6 @@ int gether_register_netdev(struct net_device *net)
 		netif_carrier_off(net);
 	}
 
-	uether_debugfs_init(dev);
-
 	return status;
 }
 EXPORT_SYMBOL_GPL(gether_register_netdev);
