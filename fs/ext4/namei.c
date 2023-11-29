@@ -1308,7 +1308,7 @@ static int dx_make_map(struct inode *dir, struct buffer_head *bh,
 			count++;
 			cond_resched();
 		}
-		de = ext4_next_entry(de, blocksize);
+		de = ext4_next_entry(de, dir->i_sb->s_blocksize);
 	}
 	return count;
 }
