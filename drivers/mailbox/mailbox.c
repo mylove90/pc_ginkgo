@@ -85,6 +85,7 @@ static int __msg_submit(struct mbox_chan *chan)
 exit:
 	spin_unlock_irqrestore(&chan->lock, flags);
 	return err;
+
 	if (!err && (chan->txdone_method & TXDONE_BY_POLL)) {
 		/* kick start the timer immediately to avoid delays */
 		spin_lock_irqsave(&chan->mbox->poll_hrt_lock, flags);
