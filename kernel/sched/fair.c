@@ -7829,7 +7829,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		if (!prefer_idle && !boosted &&
 			(target_cpu != -1 || best_idle_cpu != -1) &&
 			(fbt_env->placement_boost == SCHED_BOOST_NONE ||
-			sched_boost() != FULL_THROTTLE_BOOST ||
 			(fbt_env->placement_boost == SCHED_BOOST_ON_BIG &&
 				!next_group_higher_cap)))
 			break;
@@ -9331,7 +9330,7 @@ static int detach_tasks(struct lb_env *env)
 {
 	struct list_head *tasks = &env->src_rq->cfs_tasks;
 	struct task_struct *p;
-	unsigned long load = 0;
+	unsigned long load;
 	int detached = 0;
 	int orig_loop = env->loop;
 
@@ -9423,9 +9422,6 @@ redo:
 
 		continue;
 next:
-		trace_sched_load_balance_skip_tasks(env->src_cpu, env->dst_cpu,
-				env->src_grp_type, p->pid, load, task_util(p),
-				cpumask_bits(&p->cpus_allowed)[0]);
 		list_move_tail(&p->se.group_node, tasks);
 	}
 
@@ -10311,14 +10307,6 @@ next_group:
 		sds->total_capacity += sgs->group_capacity;
 		sds->total_util += sgs->group_util;
 
-		trace_sched_load_balance_sg_stats(sg->cpumask[0], sgs->group_type,
-					sgs->idle_cpus, sgs->sum_nr_running,
-					sgs->group_load, sgs->group_capacity,
-					sgs->group_util, sgs->group_no_capacity,
-					sgs->load_per_task,
-					sgs->group_misfit_task_load,
-					sds->busiest ? sds->busiest->cpumask[0] : 0);
-
 		sg = sg->next;
 	} while (sg != env->sd->groups);
 
@@ -10760,11 +10748,6 @@ force_balance:
 	/* Looks like there is an imbalance. Compute it */
 	env->src_grp_type = busiest->group_type;
 	calculate_imbalance(env, &sds);
-	trace_sched_load_balance_stats(sds.busiest->cpumask[0], busiest->group_type,
-				busiest->avg_load, busiest->load_per_task,
-				sds.local->cpumask[0], local->group_type,
-				local->avg_load, local->load_per_task,
-				sds.avg_load, env->imbalance);
 	return sds.busiest;
 
 out_balanced:
@@ -11219,7 +11202,6 @@ no_move:
 				busiest->active_balance = 1;
 				busiest->push_cpu = this_cpu;
 				active_balance = 1;
-				mark_reserved(this_cpu);
 			}
 			raw_spin_unlock_irqrestore(&busiest->lock, flags);
 
@@ -11298,7 +11280,7 @@ out:
 				 group ? group->cpumask[0] : 0,
 				 busiest ? busiest->nr_running : 0,
 				 env.imbalance, env.flags, ld_moved,
-				 sd->balance_interval, active_balance);
+				 sd->balance_interval);
 	return ld_moved;
 }
 
@@ -11614,7 +11596,6 @@ out_unlock:
 	busiest_rq->active_balance = 0;
 	push_task = busiest_rq->push_task;
 	target_cpu = busiest_rq->push_cpu;
-	clear_reserved(target_cpu);
 
 	if (push_task)
 		busiest_rq->push_task = NULL;
@@ -11625,6 +11606,7 @@ out_unlock:
 		if (push_task_detached)
 			attach_one_task(target_rq, push_task);
 		put_task_struct(push_task);
+		clear_reserved(target_cpu);
 	}
 
 	if (p)
@@ -11712,7 +11694,6 @@ static void nohz_balancer_kick(bool only_update)
 	 * is idle. And the softirq performing nohz idle load balance
 	 * will be run before returning from the IPI.
 	 */
-	trace_sched_load_balance_nohz_kick(smp_processor_id(), ilb_cpu);
 	smp_send_reschedule(ilb_cpu);
 	return;
 }
