@@ -3,7 +3,7 @@
     "kernelSource": {
       "name": "PureCAF",
       "repo": "https://github.com/mylove90/pc_ginkgo.git",
-      "branch": "11.0",
+      "branch": "pelt",
       "device": "ginkgo",
       "defconfig": "genom_defconfig"
     },
