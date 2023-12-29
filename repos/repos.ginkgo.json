@@ -10,7 +10,7 @@
     "withKernelSU": true,
     "toolchains": [
   {
-    "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r48/clang-r383902b1.tar.gz",
+    "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/e9db902a03d1e9869c3b578aa9625a6a1154b89d/clang-r428724.tar.gz",
     "name": "clang",
     "binPath": ["./bin"]
   },
