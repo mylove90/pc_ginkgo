@@ -770,7 +770,7 @@ static FORCE_INLINE void LZ4_resetStream(LZ4_stream_t *LZ4_stream)
 	memset(LZ4_stream, 0, sizeof(LZ4_stream_t));
 }
 
-int LZ4_loadDict(LZ4_stream_t *LZ4_dict,
+static int LZ4_loadDict(LZ4_stream_t *LZ4_dict,
 	const char *dictionary, int dictSize)
 {
 	LZ4_stream_t_internal *dict = &LZ4_dict->internal_donotuse;
@@ -805,7 +805,6 @@ int LZ4_loadDict(LZ4_stream_t *LZ4_dict,
 
 	return dict->dictSize;
 }
-EXPORT_SYMBOL(LZ4_loadDict);
 
 static void LZ4_renormDictT(LZ4_stream_t_internal *LZ4_dict,
 	const BYTE *src)
@@ -831,7 +830,7 @@ static void LZ4_renormDictT(LZ4_stream_t_internal *LZ4_dict,
 	}
 }
 
-int LZ4_saveDict(LZ4_stream_t *LZ4_dict, char *safeBuffer, int dictSize)
+static int LZ4_saveDict(LZ4_stream_t *LZ4_dict, char *safeBuffer, int dictSize)
 {
 	LZ4_stream_t_internal * const dict = &LZ4_dict->internal_donotuse;
 	const BYTE * const previousDictEnd = dict->dictionary + dict->dictSize;
@@ -850,7 +849,6 @@ int LZ4_saveDict(LZ4_stream_t *LZ4_dict, char *safeBuffer, int dictSize)
 
 	return dictSize;
 }
-EXPORT_SYMBOL(LZ4_saveDict);
 
 static int LZ4_compress_fast_continue(LZ4_stream_t *LZ4_stream, const char *source,
 	char *dest, int inputSize, int maxOutputSize, int acceleration)
