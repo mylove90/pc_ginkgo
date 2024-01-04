@@ -605,13 +605,12 @@ static int LZ4_compress_HC_extStateHC(
 			srcSize, maxDstSize, compressionLevel, noLimit);
 }
 
-int LZ4_compress_HC(const char *src, char *dst, int srcSize,
+static int LZ4_compress_HC(const char *src, char *dst, int srcSize,
 	int maxDstSize, int compressionLevel, void *wrkmem)
 {
 	return LZ4_compress_HC_extStateHC(wrkmem, src, dst,
 		srcSize, maxDstSize, compressionLevel);
 }
-EXPORT_SYMBOL(LZ4_compress_HC);
 
 /**************************************
  *	Streaming Functions

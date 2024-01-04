@@ -268,7 +268,7 @@ static int LZ4_compress_destSize(const char *source, char *dest, int *sourceSize
  * Return: number of bytes read from the source buffer
  *	or a negative result if decompression fails.
  */
-int LZ4_decompress_fast(const char *source, char *dest, int originalSize);
+static int LZ4_decompress_fast(const char *source, char *dest, int originalSize);
 
 /**
  * LZ4_decompress_safe() - Decompression protected against buffer overflow
@@ -343,7 +343,7 @@ static int LZ4_decompress_safe_partial(const char *source, char *dest,
  *
  * Return : the number of bytes written into 'dst' or 0 if compression fails.
  */
-int LZ4_compress_HC(const char *src, char *dst, int srcSize, int dstCapacity,
+static int LZ4_compress_HC(const char *src, char *dst, int srcSize, int dstCapacity,
 	int compressionLevel, void *wrkmem);
 
 /**
@@ -462,7 +462,7 @@ static __always_inline void LZ4_resetStream(LZ4_stream_t *LZ4_stream);
  *
  * Return : dictionary size, in bytes (necessarily <= 64 KB)
  */
-int LZ4_loadDict(LZ4_stream_t *streamPtr, const char *dictionary,
+static int LZ4_loadDict(LZ4_stream_t *streamPtr, const char *dictionary,
 	int dictSize);
 
 /**
@@ -481,7 +481,7 @@ int LZ4_loadDict(LZ4_stream_t *streamPtr, const char *dictionary,
  * Return : saved dictionary size in bytes (necessarily <= dictSize),
  *	or 0 if error.
  */
-int LZ4_saveDict(LZ4_stream_t *streamPtr, char *safeBuffer, int dictSize);
+static int LZ4_saveDict(LZ4_stream_t *streamPtr, char *safeBuffer, int dictSize);
 
 /**
  * LZ4_compress_fast_continue() - Compress 'src' using data from previously
