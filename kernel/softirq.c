@@ -642,7 +642,7 @@ static void run_ksoftirqd(unsigned int cpu)
 	do_current_softirqs();
 	current->softirq_nestcnt--;
 	local_irq_enable();
-	cond_resched_rcu_qs();
+	cond_resched_tasks_rcu_qs();
 }
 
 /*
