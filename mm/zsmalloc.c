@@ -2163,7 +2163,7 @@ static unsigned long __zs_compact(struct zs_pool *pool,
 		if (putback_zspage(class, src_zspage) == ZS_EMPTY) {
 			migrate_write_unlock(src_zspage);
 			free_zspage(pool, class, src_zspage);
-			pool->stats.pages_compacted += class->pages_per_zspage;
+			pages_freed += class->pages_per_zspage;
 		} else
 			migrate_write_unlock(src_zspage);
 		spin_unlock(&class->lock);
