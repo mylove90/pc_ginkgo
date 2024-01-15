@@ -234,6 +234,7 @@ struct rcu_data {
 	struct task_struct *rcu_cpu_kthread_task;
 					/* rcuc per-CPU kthread or NULL. */
 	unsigned int rcu_cpu_kthread_status;
+	unsigned int rcu_cpu_kthread_loops;
 	char rcu_cpu_has_work;
 
 	/* 7) Diagnostic data, including RCU CPU stall warnings. */
@@ -460,3 +461,4 @@ static void rcu_iw_handler(struct irq_work *iwp);
 static void check_cpu_stall(struct rcu_data *rdp);
 static void rcu_check_gp_start_stall(struct rcu_node *rnp, struct rcu_data *rdp,
 				     const unsigned long gpssdelay);
+

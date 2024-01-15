@@ -2345,21 +2345,21 @@ static void invoke_rcu_core(void)
 	if (!cpu_online(smp_processor_id()))
 		return;
 	local_irq_save(flags);
-	__this_cpu_write(rcu_cpu_has_work, 1);
-	t = __this_cpu_read(rcu_cpu_kthread_task);
+	__this_cpu_write(rcu_data.rcu_cpu_has_work, 1);
+	t = __this_cpu_read(rcu_data.rcu_cpu_kthread_task);
 	if (t != NULL && current != t)
-		rcu_wake_cond(t, __this_cpu_read(rcu_cpu_kthread_status));
+		rcu_wake_cond(t, __this_cpu_read(rcu_data.rcu_cpu_kthread_status));
 	local_irq_restore(flags);
 }
 
 static void rcu_cpu_kthread_park(unsigned int cpu)
 {
-	per_cpu(rcu_cpu_kthread_status, cpu) = RCU_KTHREAD_OFFCPU;
+	per_cpu(rcu_data.rcu_cpu_kthread_status, cpu) = RCU_KTHREAD_OFFCPU;
 }
 
 static int rcu_cpu_kthread_should_run(unsigned int cpu)
 {
-	return __this_cpu_read(rcu_cpu_has_work);
+	return __this_cpu_read(rcu_data.rcu_cpu_has_work);
 }
 
 /*
@@ -2369,21 +2369,21 @@ static int rcu_cpu_kthread_should_run(unsigned int cpu)
  */
 static void rcu_cpu_kthread(unsigned int cpu)
 {
-	unsigned int *statusp = this_cpu_ptr(&rcu_cpu_kthread_status);
-	char work, *workp = this_cpu_ptr(&rcu_cpu_has_work);
+	unsigned int *statusp = this_cpu_ptr(&rcu_data.rcu_cpu_kthread_status);
+	char work, *workp = this_cpu_ptr(&rcu_data.rcu_cpu_has_work);
 	int spincnt;
 
 	for (spincnt = 0; spincnt < 10; spincnt++) {
 		trace_rcu_utilization(TPS("Start CPU kthread@rcu_wait"));
 		local_bh_disable();
 		*statusp = RCU_KTHREAD_RUNNING;
-		this_cpu_inc(rcu_cpu_kthread_loops);
+		this_cpu_inc(rcu_data.rcu_cpu_kthread_loops);
 		local_irq_disable();
 		work = *workp;
 		*workp = 0;
 		local_irq_enable();
 		if (work)
-			rcu_process_callbacks();
+			rcu_core();
 		local_bh_enable();
 		if (*workp == 0) {
 			trace_rcu_utilization(TPS("End CPU kthread@rcu_wait"));
@@ -2415,7 +2415,7 @@ static int __init rcu_spawn_core_kthreads(void)
 	int cpu;
 
 	for_each_possible_cpu(cpu)
-		per_cpu(rcu_cpu_has_work, cpu) = 0;
+		per_cpu(rcu_data.rcu_cpu_has_work, cpu) = 0;
 	BUG_ON(smpboot_register_percpu_thread(&rcu_cpu_thread_spec));
 	return 0;
 }
