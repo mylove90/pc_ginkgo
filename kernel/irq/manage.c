@@ -397,7 +397,7 @@ irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
 #ifndef CONFIG_PREEMPT_RT_BASE
 		if (kthread_cancel_work_sync(&old_notify->work)) {
 #else
-		if (cancel_work_sync(&old_notify->work)) {
+		if (kthread_cancel_work_sync(&old_notify->work)) {
 #endif
 			/* Pending work had a ref, put that one too */
 			kref_put(&old_notify->kref, old_notify->release);
