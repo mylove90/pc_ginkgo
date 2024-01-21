@@ -582,6 +582,8 @@ asmlinkage __visible void __init start_kernel(void)
 	page_alloc_init();
 
 	pr_notice("Kernel command line: %s\n", boot_command_line);
+	/* parameters may set static keys */
+	jump_label_init();
 
 	p = NULL;
 	p= strstr(command_line, "androidboot.fpsensor=fpc");
