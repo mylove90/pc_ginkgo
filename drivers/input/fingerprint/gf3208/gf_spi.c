@@ -354,7 +354,7 @@ static irqreturn_t gf_irq(int irq, void *handle)
 	__pm_wakeup_event(&fp_ws, WAKELOCK_HOLD_TIME);//for kernel 4.9
 	sendnlmsg(&msg);
 	if (gf_dev->device_available == 1) {
-		printk("%s:shedule_work\n",__func__);
+		pr_debug("%s:shedule_work\n",__func__);
 		gf_dev->wait_finger_down = false;
 		schedule_work(&gf_dev->work);
 	}
@@ -633,7 +633,7 @@ static int proc_show_ver(struct seq_file *file,void *v)
 
 static int proc_open(struct inode *inode,struct file *file)
 {
-	printk("gf3258 proc_open\n");
+	pr_debug("gf3258 proc_open\n");
 	single_open(file,proc_show_ver,NULL);
 	return 0;
 }
@@ -758,7 +758,7 @@ static int gf_probe(struct platform_device *pdev)
 	int status = -EINVAL;
 	unsigned long minor;
 	int i;
-	printk("Macle11 gf_probe\n");
+	pr_debug("Macle11 gf_probe\n");
 	/* Initialize the driver data */
 	INIT_LIST_HEAD(&gf_dev->device_entry);
 #if defined(USE_SPI_BUS)
@@ -841,10 +841,10 @@ static int gf_probe(struct platform_device *pdev)
 
 	proc_entry = proc_create(PROC_NAME, 0644, NULL, &proc_file_ops);
 	if (NULL == proc_entry) {
-		printk("gf3258 Couldn't create proc entry!");
+		pr_debug("gf3258 Couldn't create proc entry!");
 		return -ENOMEM;
 	} else {
-		printk("gf3258 Create proc entry success!");
+		pr_debug("gf3258 Create proc entry success!");
 	}
 
 	pr_info("version V%d.%d.%02d\n", VER_MAJOR, VER_MINOR, PATCH_LEVEL);
