@@ -59,7 +59,7 @@ module_param(powerkey_input_boost_ms, uint, 0644);
 static unsigned int sched_boost_on_input;
 module_param(sched_boost_on_input, uint, 0644);
 
-static bool sched_boost_on_powerkey_input = true;
+static bool sched_boost_on_powerkey_input;
 module_param(sched_boost_on_powerkey_input, bool, 0644);
 
 static bool sched_boost_active;
