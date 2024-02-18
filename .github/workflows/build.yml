@@ -241,6 +241,9 @@ jobs:
             cp -f ${{ env.OUT_DIR }}/arch/${{ env.arch }}/boot/dtbo.img ./AnyKernel3/
           fi
 
+            cp -f ${{ env.OUT_DIR }}/techpack/data/drivers/rmnet/shs/rmnet_shs.ko ./AnyKernel3/modules/vendor/lib/modules/
+            cp -f ${{ env.OUT_DIR }}/techpack/data/drivers/rmnet/perf/rmnet_perf.ko ./AnyKernel3/modules/vendor/lib/modules/
+
           cd AnyKernel3/
           zip -q -r "${{ env.anykernel }}.zip" *
 
